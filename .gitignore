@@ -1,0 +1,27 @@
+.DS_Store
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Java
+target/
+*.class
+*.log
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Uploads / local runtime
+uploads/
+**/uploads/
+logs/
+**/logs/

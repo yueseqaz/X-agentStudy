@@ -1,0 +1,13 @@
+package com.xagentstudy.summary;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface SummaryCardRepository extends JpaRepository<SummaryCard, Long> {
+    List<SummaryCard> findByPlanIdAndUserIdOrderByCreatedAtDesc(Long planId, Long userId);
+
+    void deleteByPlanId(Long planId);
+
+    void deleteByDocumentId(Long documentId);
+}
