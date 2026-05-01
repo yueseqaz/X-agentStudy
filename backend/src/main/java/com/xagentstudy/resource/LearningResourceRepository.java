@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface LearningResourceRepository extends JpaRepository<LearningResource, Long> {
     List<LearningResource> findAllByOrderByCreatedAtDesc();
+
+    List<LearningResource> findAllByUploaderUserIdOrderByCreatedAtDesc(Long uploaderUserId);
 }

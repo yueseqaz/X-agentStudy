@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { Search, View } from '@element-plus/icons-vue'
+import { Promotion, Search, View } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { http, type ApiResponse } from '../api/http'
 import ResourcePreviewPanel, { type LearningResource } from '../components/ResourcePreviewPanel.vue'
+import { useAuthStore } from '../stores/auth'
 
 const props = defineProps<{
   embeddedPlanId?: number
 }>()
 
+const router = useRouter()
+const auth = useAuthStore()
 const loading = ref(false)
 const resources = ref<LearningResource[]>([])
 const keyword = ref('')
@@ -38,6 +42,27 @@ const filteredResources = computed(() => {
 const subjectOptions = computed(() => unique(resources.value.map((resource) => resource.subjectName)))
 const scopeOptions = computed(() => unique(resources.value.map((resource) => resource.subjectScope)))
 const tagOptions = computed(() => unique(resources.value.flatMap((resource) => resource.tagList)))
+const showCollaborationEntry = computed(() => !props.embeddedPlanId && auth.ready)
+const collaborationEntry = computed(() => {
+  if (auth.canManageResources) {
+    return {
+      title: '已开通资源协作入口',
+      description: '你的账号已具备资源协作者权限，可以继续维护自己的来源、采集任务和候选资源。',
+      buttonText: '进入我的资源管理',
+      target: '/resource-management',
+      tag: '已获批',
+      tagType: 'success' as const,
+    }
+  }
+  return {
+    title: '参与资源共建',
+    description: '普通用户可申请成为资源协作者，提交理由、擅长方向和资源来源说明后等待管理员审核。',
+    buttonText: '申请资源协作者',
+    target: '/resources/apply',
+    tag: '申请通道',
+    tagType: 'warning' as const,
+  }
+})
 
 watch(
   () => props.embeddedPlanId,
@@ -89,6 +114,20 @@ function unique(values: string[]) {
         <p>{{ embeddedPlanId ? '按学习方向名、技能分类与资源的学科名、学科范畴、标签匹配。' : '平台统一沉淀的视频、音频、图片和文档资源。' }}</p>
       </div>
       <el-tag>{{ resources.length }} 个资源</el-tag>
+    </div>
+
+    <div v-if="showCollaborationEntry" class="resource-collaboration-entry">
+      <div>
+        <span>资源协作</span>
+        <strong>{{ collaborationEntry.title }}</strong>
+        <p>{{ collaborationEntry.description }}</p>
+      </div>
+      <div class="resource-entry-actions">
+        <el-tag :type="collaborationEntry.tagType">{{ collaborationEntry.tag }}</el-tag>
+        <el-button :icon="Promotion" type="primary" @click="router.push(collaborationEntry.target)">
+          {{ collaborationEntry.buttonText }}
+        </el-button>
+      </div>
     </div>
 
     <div class="resource-match-guide">

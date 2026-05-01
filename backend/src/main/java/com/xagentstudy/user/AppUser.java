@@ -28,6 +28,9 @@ public class AppUser {
     @Column(nullable = false, length = 32)
     private String role;
 
+    @Column(nullable = false)
+    private Boolean resourceManager;
+
     @Column(columnDefinition = "longtext")
     private String avatarUrl;
 
@@ -47,6 +50,7 @@ public class AppUser {
         this.account = account;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.resourceManager = false;
         this.disabled = false;
         this.emailVerified = false;
         this.failedLoginCount = 0;
@@ -71,6 +75,10 @@ public class AppUser {
 
     public String getRole() {
         return role;
+    }
+
+    public Boolean getResourceManager() {
+        return resourceManager;
     }
 
     public Boolean getDisabled() {
@@ -151,5 +159,17 @@ public class AppUser {
 
     public void setAvatarUrl(String avatarUrl) {
         this.avatarUrl = avatarUrl;
+    }
+
+    public boolean isAdmin() {
+        return "ADMIN".equalsIgnoreCase(role);
+    }
+
+    public boolean isResourceManager() {
+        return Boolean.TRUE.equals(resourceManager);
+    }
+
+    public void setResourceManager(Boolean resourceManager) {
+        this.resourceManager = resourceManager;
     }
 }

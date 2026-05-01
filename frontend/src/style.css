@@ -2897,6 +2897,200 @@ h1 {
   color: #202124;
 }
 
+.outcomes-page {
+  display: grid;
+  gap: 16px;
+}
+
+.outcomes-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.outcomes-hero h2 {
+  margin: 8px 0;
+  color: #202124;
+  font-size: 30px;
+}
+
+.outcomes-hero p,
+.outcome-direction-card p,
+.outcome-highlight-card p,
+.outcome-poster-preview p {
+  margin: 0;
+  color: #6b6458;
+  line-height: 1.7;
+}
+
+.outcomes-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.outcomes-period {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.outcomes-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.outcomes-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.outcome-direction-list,
+.outcome-highlight-list,
+.outcome-trend-list {
+  display: grid;
+  gap: 12px;
+}
+
+.outcome-direction-card,
+.outcome-highlight-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #ded8cc;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.outcome-direction-head,
+.outcome-highlight-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.outcome-direction-head h3,
+.outcome-highlight-head strong,
+.outcome-poster-preview h3 {
+  margin: 0;
+  color: #202124;
+}
+
+.outcome-highlight-head {
+  justify-content: flex-start;
+}
+
+.outcome-highlight-head .el-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef8f2;
+  color: #1f6b54;
+}
+
+.outcome-highlight-head span {
+  display: block;
+  margin-top: 4px;
+  color: #7c766a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.outcome-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.outcome-rate-grid > div {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8f3e8;
+}
+
+.outcome-rate-grid span,
+.outcome-poster-preview .eyebrow {
+  color: #7c766a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.outcome-rate-grid strong {
+  color: #1f6b54;
+  font-size: 24px;
+}
+
+.outcome-trend-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 100px;
+  gap: 12px;
+  align-items: center;
+}
+
+.outcome-trend-row > span {
+  color: #7c766a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.outcome-trend-row strong {
+  color: #4d473e;
+  font-size: 13px;
+  text-align: right;
+}
+
+.outcome-trend-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.outcome-trend-bars i {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.outcome-trend-bars .tasks {
+  background: #1f6b54;
+}
+
+.outcome-trend-bars .quizzes {
+  background: #c58a2c;
+}
+
+.outcome-trend-bars .reviews {
+  background: #7b8e5d;
+}
+
+.outcome-poster-preview {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #e5dccb;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fffdf8 0%, #f8f1df 100%);
+}
+
+.outcome-poster-preview.expanded {
+  padding: 28px;
+  box-shadow: 0 14px 36px rgba(41, 34, 24, 0.08);
+}
+
+.outcome-poster-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 .summary-card-workbench {
   display: grid;
   gap: 16px;
@@ -3216,6 +3410,123 @@ h1 {
   line-height: 1.5;
 }
 
+.resource-application-page,
+.resource-management-page {
+  display: grid;
+  gap: 16px;
+}
+
+.collaboration-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.collaboration-hero span {
+  color: #8a5b13;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.collaboration-hero h2 {
+  margin: 6px 0;
+  color: #202124;
+  font-size: 28px;
+}
+
+.collaboration-hero p {
+  margin: 0;
+  color: #6b6458;
+  line-height: 1.7;
+}
+
+.collaboration-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.resource-collaboration-entry,
+.resource-entry-actions,
+.resource-two-column,
+.resource-source-grid,
+.resource-form-grid,
+.collaborator-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.resource-collaboration-entry {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid #d8d0c1;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 10px 24px rgba(41, 34, 24, 0.06);
+}
+
+.resource-collaboration-entry span,
+.resource-source-card p {
+  color: #8a5b13;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.resource-collaboration-entry strong,
+.resource-source-card h3 {
+  color: #202124;
+  font-size: 18px;
+}
+
+.resource-collaboration-entry p {
+  margin: 6px 0 0;
+  color: #5e584e;
+  line-height: 1.6;
+}
+
+.resource-entry-actions {
+  justify-items: end;
+  align-content: start;
+}
+
+.resource-form-grid {
+  max-width: 100%;
+}
+
+.resource-two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.collaborator-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.resource-source-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.resource-source-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #ded8cc;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.resource-source-card h3 {
+  margin: 0;
+}
+
+.resource-source-card p {
+  margin: 0;
+  color: #5e584e;
+  font-weight: 500;
+}
+
 @media (max-width: 980px) {
   .sidebar {
     display: none;
@@ -3238,13 +3549,19 @@ h1 {
   .subscription-plans,
   .checkin-layout,
   .checkin-streaks,
+  .outcomes-layout,
+  .outcomes-metrics,
   .summary-card-toolbar,
   .summary-card-grid,
   .summary-card-item,
   .resource-toolbar,
   .resource-match-guide,
   .admin-resource-layout,
-  .admin-resource-item {
+  .admin-resource-item,
+  .collaboration-layout,
+  .resource-collaboration-entry,
+  .resource-two-column,
+  .resource-source-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3256,6 +3573,16 @@ h1 {
   .checkin-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .collaboration-hero,
+  .outcomes-hero,
+  .outcome-direction-head {
+    flex-direction: column;
+  }
+
+  .outcome-trend-row {
+    grid-template-columns: 1fr;
   }
 
   .calendar-day {

@@ -10,6 +10,8 @@ public interface AnswerRecordRepository extends JpaRepository<AnswerRecord, Long
 
     List<AnswerRecord> findByQuestionIdInAndUserIdOrderByAnsweredAtDesc(List<Long> questionIds, Long userId);
 
+    List<AnswerRecord> findByUserIdAndAnsweredAtBetweenOrderByAnsweredAtAsc(Long userId, OffsetDateTime start, OffsetDateTime end);
+
     long countByUserIdAndAnsweredAtBetween(Long userId, OffsetDateTime start, OffsetDateTime end);
 
     long countByUserIdAndCorrectTrueAndAnsweredAtBetween(Long userId, OffsetDateTime start, OffsetDateTime end);

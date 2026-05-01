@@ -8,8 +8,10 @@ import {
   Collection,
   Files,
   Histogram,
+  Management,
   Reading,
   Setting,
+  Trophy,
   UserFilled,
 } from '@element-plus/icons-vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -47,17 +49,39 @@ const routeGuide = computed(() => {
       ['结合计划复盘', '打卡内容会和计划进度一起形成学习回顾。'],
     ])
   }
+  if (path === '/outcomes') {
+    return guide('outcomes', '学习成果使用引导', [
+      ['切换统计周期', '可以查看最近 7 天、30 天、90 天、全部或自定义范围。'],
+      ['看跨计划成果', '这里聚合的是全部学习计划，不是某个计划的局部报告。'],
+      ['生成成果海报', '当前统计范围可以直接生成一张成果展示图。'],
+    ])
+  }
   if (path === '/resources') {
     return guide('resources', '资源库使用引导', [
-      ['资源只由管理员维护', '普通用户在这里查看平台资源，上传和删除只在管理后台进行。'],
+      ['先看自己的入口', '普通用户会看到协作者申请入口，已获批账号会看到进入我的资源管理入口。'],
       ['用筛选快速定位', '可以按类型、学科名、学科范畴和标签筛选，也可以搜索标题和简介。'],
       ['理解推荐规则', '资源学科名匹配方向名称，学科范畴匹配技能分类，标签用于补充命中。'],
+    ])
+  }
+  if (path === '/resources/apply') {
+    return guide('resource-apply', '资源协作者申请引导', [
+      ['说明擅长方向', '申请理由写清楚你熟悉的主题、资料来源或整理经验，管理员更容易判断适配度。'],
+      ['关注审核状态', '提交后可以在同页看到待审核、已通过或已拒绝状态，以及审核说明。'],
+      ['通过后进入管理页', '审核通过后，侧边栏会出现“我的资源管理”独立入口。'],
+    ])
+  }
+  if (path === '/resource-management') {
+    return guide('resource-management', '我的资源管理引导', [
+      ['先看我的来源', '这里会汇总你名下的来源站点、白名单状态和最近任务情况。'],
+      ['再建采集任务', '录入链接后可以发起采集，再进入候选资源补充标题、标签和方向字段。'],
+      ['只管理自己的资源', '当前页面只展示你自己的任务与候选资源，不包含全站审核能力。'],
     ])
   }
   if (path === '/admin') {
     return guide('admin', '管理后台使用引导', [
       ['概览运营状态', '概览页查看用户、学习资产、题库、任务和额度情况。'],
       ['维护学习资源', '学习资源 Tab 用于上传视频、音频、图片和文档，并填写匹配标签。'],
+      ['处理资源协作', '资源协作 Tab 用于审核申请、审核候选资源和查看来源概览。'],
       ['处理平台配置', '模型网关、任务、额度、用户安全和审计日志都在这里维护。'],
     ])
   }
@@ -147,9 +171,17 @@ watch(
           <el-icon><Calendar /></el-icon>
           <span>每日打卡</span>
         </el-menu-item>
+        <el-menu-item index="/outcomes">
+          <el-icon><Trophy /></el-icon>
+          <span>学习成果</span>
+        </el-menu-item>
         <el-menu-item index="/resources">
           <el-icon><Files /></el-icon>
           <span>资源库</span>
+        </el-menu-item>
+        <el-menu-item v-if="auth.ready && auth.canManageResources" index="/resource-management">
+          <el-icon><Management /></el-icon>
+          <span>我的资源管理</span>
         </el-menu-item>
         <el-menu-item v-if="auth.ready && auth.isAdmin" index="/admin">
           <el-icon><Setting /></el-icon>
@@ -177,7 +209,9 @@ watch(
           <h1>多 Agent 协作技能学习平台</h1>
         </div>
         <div class="topbar-actions">
-          <el-tag v-if="auth.user" type="success">{{ auth.user.nickname }} · {{ auth.user.role }}</el-tag>
+          <el-tag v-if="auth.user" :type="auth.canManageResources ? 'warning' : 'success'">
+            {{ auth.user.nickname }} · {{ auth.isAdmin ? 'ADMIN' : auth.canManageResources ? '资源协作者' : auth.user.role }}
+          </el-tag>
           <el-button :icon="Bell" circle />
           <el-button :icon="Reading" type="primary" @click="router.push('/directions')">创建学习方向</el-button>
           <el-button @click="router.push({ path: '/account', query: { tab: 'billing' } })">订阅</el-button>

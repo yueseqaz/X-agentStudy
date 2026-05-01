@@ -5,6 +5,11 @@ import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus
 import { http, type ApiResponse } from '../api/http'
 import FirstRunGuide, { type GuideStep } from '../components/FirstRunGuide.vue'
 import ResourcePreviewPanel, { type LearningResource } from '../components/ResourcePreviewPanel.vue'
+import type {
+  CandidateResourceReview,
+  CollaboratorApplicationReview,
+  SourceOverview,
+} from '../types/resourceCollaboration'
 
 interface Summary {
   users: number
@@ -94,6 +99,9 @@ const quotas = ref<AdminQuota[]>([])
 const auditLogs = ref<AuditLog[]>([])
 const modelConfigs = ref<ModelConfig[]>([])
 const resources = ref<LearningResource[]>([])
+const collaboratorApplications = ref<CollaboratorApplicationReview[]>([])
+const candidateReviews = ref<CandidateResourceReview[]>([])
+const sourceOverviews = ref<SourceOverview[]>([])
 const activeAdminTab = ref('overview')
 const activeTask = ref<AdminTask | null>(null)
 const activeResource = ref<LearningResource | null>(null)
@@ -101,6 +109,10 @@ const taskDrawerVisible = ref(false)
 const resourcePreviewVisible = ref(false)
 const banUntilByUser = ref<Record<number, string>>({})
 const rechargeYuanByUser = ref<Record<number, number>>({})
+const applicationReviewNote = ref<Record<number, string>>({})
+const candidateReviewNote = ref<Record<number, string>>({})
+const reviewingApplicationId = ref<number | null>(null)
+const reviewingCandidateId = ref<number | null>(null)
 const savingModelConfig = ref(false)
 const uploadingResource = ref(false)
 const editingModelConfig = ref<ModelConfig | null>(null)
@@ -143,6 +155,11 @@ const adminTabGuide = computed(() => {
       ['追踪后台操作', '用户封禁、额度重置、任务重试等关键操作都会记录。'],
       ['定位责任和时间', '日志包含操作者、对象、动作、详情和时间。'],
     ]],
+    collaboration: ['资源协作引导', [
+      ['审核协作者申请', '管理员在这里决定普通用户是否获得资源协作者权限。'],
+      ['审核候选资源', '协作者整理完成后，管理员在这里决定通过、驳回或要求补充。'],
+      ['查看来源概览', '来源状态、白名单情况和最近任务也在这里统一查看。'],
+    ]],
   }
   const matched = map[activeAdminTab.value] || map.overview
   return {
@@ -170,6 +187,9 @@ async function fetchAdmin() {
       auditLogsResponse,
       modelConfigsResponse,
       resourcesResponse,
+      collaboratorApplicationsResponse,
+      candidateReviewsResponse,
+      sourceOverviewsResponse,
     ] = await Promise.all([
       http.get<ApiResponse<Summary>>('/admin/summary'),
       http.get<ApiResponse<AdminUser[]>>('/admin/users'),
@@ -179,6 +199,9 @@ async function fetchAdmin() {
       http.get<ApiResponse<AuditLog[]>>('/admin/audit-logs'),
       http.get<ApiResponse<ModelConfig[]>>('/model-configs'),
       http.get<ApiResponse<LearningResource[]>>('/resources'),
+      safeGet<CollaboratorApplicationReview[]>('/admin/resource-collaboration/applications'),
+      safeGet<CandidateResourceReview[]>('/admin/resource-collaboration/candidates'),
+      safeGet<SourceOverview[]>('/admin/resource-collaboration/sources'),
     ])
     summary.value = summaryResponse.data.data
     users.value = usersResponse.data.data
@@ -188,8 +211,20 @@ async function fetchAdmin() {
     auditLogs.value = auditLogsResponse.data.data
     modelConfigs.value = modelConfigsResponse.data.data
     resources.value = resourcesResponse.data.data
+    collaboratorApplications.value = collaboratorApplicationsResponse
+    candidateReviews.value = candidateReviewsResponse
+    sourceOverviews.value = sourceOverviewsResponse
   } finally {
     loading.value = false
+  }
+}
+
+async function safeGet<T>(url: string): Promise<T> {
+  try {
+    const response = await http.get<ApiResponse<T>>(url)
+    return response.data.data
+  } catch {
+    return [] as T
   }
 }
 
@@ -369,6 +404,34 @@ async function deleteResource(resource: LearningResource) {
   ElMessage.success('学习资源已删除')
 }
 
+async function reviewApplication(row: CollaboratorApplicationReview, approved: boolean) {
+  reviewingApplicationId.value = row.id
+  try {
+    await http.post<ApiResponse<CollaboratorApplicationReview>>(`/admin/resource-collaboration/applications/${row.id}/review`, {
+      status: approved ? 'APPROVED' : 'REJECTED',
+      reviewNote: applicationReviewNote.value[row.id] || '',
+    })
+    ElMessage.success(approved ? '申请已通过' : '申请已驳回')
+    await fetchAdmin()
+  } finally {
+    reviewingApplicationId.value = null
+  }
+}
+
+async function reviewCandidate(row: CandidateResourceReview, approved: boolean) {
+  reviewingCandidateId.value = row.id
+  try {
+    await http.post<ApiResponse<CandidateResourceReview>>(`/admin/resource-collaboration/candidates/${row.id}/review`, {
+      status: approved ? 'APPROVED' : 'REJECTED',
+      reviewNote: candidateReviewNote.value[row.id] || '',
+    })
+    ElMessage.success(approved ? '候选资源已通过' : '候选资源已驳回')
+    await fetchAdmin()
+  } finally {
+    reviewingCandidateId.value = null
+  }
+}
+
 function prettyPayload(value: string | null) {
   if (!value) {
     return '-'
@@ -525,6 +588,164 @@ onMounted(fetchAdmin)
               </div>
             </div>
           </section>
+        </el-tab-pane>
+
+        <el-tab-pane label="资源协作" name="collaboration">
+          <div class="admin-console">
+            <section class="surface panel-pad">
+              <div class="section-head">
+                <div>
+                  <h2>协作者申请审核</h2>
+                  <p>决定普通用户是否获得资源协作者权限，并记录审核说明。</p>
+                </div>
+                <el-tag type="warning">{{ collaboratorApplications.length }} 条申请</el-tag>
+              </div>
+              <el-table :data="collaboratorApplications" class="data-table">
+                <el-table-column label="申请人" min-width="220">
+                  <template #default="{ row }">
+                    <div class="admin-user-cell">
+                      <strong>用户 #{{ row.userId }}</strong>
+                      <span>{{ row.expertise || '未填写擅长方向' }}</span>
+                      <small>#{{ row.userId }}</small>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="reason" label="申请理由" min-width="220" show-overflow-tooltip />
+                <el-table-column prop="expertise" label="擅长方向" min-width="200" show-overflow-tooltip />
+                <el-table-column label="状态" width="120">
+                  <template #default="{ row }">
+                    <el-tag :type="taskTagType(row.status)">{{ row.status }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="提交时间" width="190">
+                  <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+                </el-table-column>
+                <el-table-column label="审核说明" min-width="240">
+                  <template #default="{ row }">
+                    <el-input
+                      v-model="applicationReviewNote[row.id]"
+                      :placeholder="row.reviewNote || '填写通过或驳回说明'"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="200" fixed="right">
+                  <template #default="{ row }">
+                    <div class="admin-inline-actions">
+                      <el-button
+                        size="small"
+                        type="success"
+                        :loading="reviewingApplicationId === row.id"
+                        @click="reviewApplication(row, true)"
+                      >
+                        通过
+                      </el-button>
+                      <el-button
+                        size="small"
+                        type="danger"
+                        :loading="reviewingApplicationId === row.id"
+                        @click="reviewApplication(row, false)"
+                      >
+                        驳回
+                      </el-button>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </section>
+
+            <section class="surface panel-pad">
+              <div class="section-head">
+                <div>
+                  <h2>候选资源审核</h2>
+                  <p>审核协作者整理后的候选资源，决定通过、驳回或退回补充。</p>
+                </div>
+                <el-tag type="warning">{{ candidateReviews.length }} 条候选资源</el-tag>
+              </div>
+              <el-table :data="candidateReviews" class="data-table">
+                <el-table-column label="资源" min-width="240">
+                  <template #default="{ row }">
+                    <div class="admin-user-cell">
+                      <strong>{{ row.title }}</strong>
+                      <span>{{ row.sourceType }} / {{ row.contentCaptureMode }}</span>
+                      <small>协作者 #{{ row.ownerUserId }}</small>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="resourceUrl" label="来源链接" min-width="220" show-overflow-tooltip />
+                <el-table-column prop="tags" label="标签" min-width="180" show-overflow-tooltip />
+                <el-table-column label="状态" width="120">
+                  <template #default="{ row }">
+                    <el-tag :type="taskTagType(row.reviewStatus)">{{ row.reviewStatus }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="提交时间" width="190">
+                  <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+                </el-table-column>
+                <el-table-column label="审核说明" min-width="240">
+                  <template #default="{ row }">
+                    <el-input
+                      v-model="candidateReviewNote[row.id]"
+                      :placeholder="row.reviewNote || '填写审核意见'"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="200" fixed="right">
+                  <template #default="{ row }">
+                    <div class="admin-inline-actions">
+                      <el-button
+                        size="small"
+                        type="success"
+                        :loading="reviewingCandidateId === row.id"
+                        @click="reviewCandidate(row, true)"
+                      >
+                        通过
+                      </el-button>
+                      <el-button
+                        size="small"
+                        type="danger"
+                        :loading="reviewingCandidateId === row.id"
+                        @click="reviewCandidate(row, false)"
+                      >
+                        驳回
+                      </el-button>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </section>
+
+            <section class="surface panel-pad">
+              <div class="section-head">
+                <div>
+                  <h2>来源概览</h2>
+                  <p>查看来源站点、白名单状态、候选资源数量与最近采集情况。</p>
+                </div>
+                <el-tag type="info">{{ sourceOverviews.length }} 个来源</el-tag>
+              </div>
+              <el-table :data="sourceOverviews" class="data-table">
+                <el-table-column prop="name" label="来源" min-width="220" />
+                <el-table-column prop="baseUrl" label="链接" min-width="240" show-overflow-tooltip />
+                <el-table-column prop="sourceType" label="类型" width="120" />
+                <el-table-column label="白名单" width="120">
+                  <template #default="{ row }">
+                    <el-tag :type="row.enabled ? 'success' : 'info'">
+                      {{ row.enabled ? 'ENABLED' : 'DISABLED' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="sourceCategory" label="分类" width="140" />
+                <el-table-column label="归属" min-width="150">
+                  <template #default="{ row }">用户 #{{ row.ownerUserId }}</template>
+                </el-table-column>
+                <el-table-column label="创建时间" width="190">
+                  <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+                </el-table-column>
+                <el-table-column label="更新时间" width="190">
+                  <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
+                </el-table-column>
+              </el-table>
+            </section>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="任务" name="tasks">
