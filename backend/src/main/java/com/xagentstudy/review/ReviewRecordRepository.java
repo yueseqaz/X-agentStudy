@@ -10,7 +10,7 @@ public interface ReviewRecordRepository extends JpaRepository<ReviewRecord, Long
 
     List<ReviewRecord> findByUserIdAndPlanIdInOrderByRecommendedAtDesc(Long userId, List<Long> planIds);
 
-    Optional<ReviewRecord> findByPlanIdAndUserIdAndKnowledgePoint(Long planId, Long userId, String knowledgePoint);
+    Optional<ReviewRecord> findFirstByPlanIdAndUserIdAndKnowledgePointOrderByCompletedAscPriorityLevelDescRecommendedAtDesc(Long planId, Long userId, String knowledgePoint);
 
     long countByPlanIdInAndUserIdAndCompletedFalse(List<Long> planIds, Long userId);
 

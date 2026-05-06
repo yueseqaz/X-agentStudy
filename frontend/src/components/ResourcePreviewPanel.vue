@@ -14,6 +14,7 @@ export interface LearningResource {
   subjectScope: string
   tags: string
   tagList: string[]
+  sourceUrl: string | null
   fileSize: number
   createdAt: string
 }
@@ -107,6 +108,11 @@ function formatFileSize(size: number) {
       <img v-else-if="resource.resourceType === 'IMAGE' && objectUrl" class="resource-image-preview" :src="objectUrl" :alt="resource.title" />
       <iframe v-else-if="preview?.previewType === 'PDF' && objectUrl" class="resource-document-frame" :src="objectUrl" />
       <pre v-else-if="preview?.previewType === 'TEXT'" class="resource-text-preview">{{ preview.content }}</pre>
+      <div v-else-if="resource.resourceType === 'EXTERNAL_COURSE'" class="external-course-preview">
+        <strong>{{ resource.title }}</strong>
+        <p>{{ resource.description || '公开课程入口，点击下方按钮前往原站学习。' }}</p>
+        <a :href="resource.sourceUrl || resource.originalFilename" target="_blank" rel="noreferrer">打开课程页面</a>
+      </div>
       <el-empty v-else description="当前资源暂不支持在线预览" />
     </div>
   </el-dialog>

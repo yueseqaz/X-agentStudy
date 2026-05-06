@@ -46,7 +46,6 @@ interface AuthPayload {
     nickname: string
     account: string
     role: string
-    resourceManager: boolean
     avatarUrl: string | null
     emailVerified: boolean
     disabled: boolean
@@ -59,7 +58,6 @@ interface UserSession {
   nickname: string
   account: string
   role: string
-  resourceManager: boolean
   avatarUrl: string | null
   emailVerified: boolean
   disabled: boolean

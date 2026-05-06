@@ -15,6 +15,7 @@ public record LearningResourceResponse(
         String subjectScope,
         String tags,
         List<String> tagList,
+        String sourceUrl,
         Long fileSize,
         OffsetDateTime createdAt
 ) {
@@ -33,6 +34,7 @@ public record LearningResourceResponse(
                         .map(String::trim)
                         .filter(value -> !value.isBlank())
                         .toList(),
+                "EXTERNAL_COURSE".equals(resource.getResourceType()) ? resource.getStorageKey() : null,
                 resource.getFileSize(),
                 resource.getCreatedAt()
         );

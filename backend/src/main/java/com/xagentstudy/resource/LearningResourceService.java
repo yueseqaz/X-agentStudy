@@ -6,6 +6,8 @@ import com.xagentstudy.direction.LearningDirection;
 import com.xagentstudy.direction.LearningDirectionRepository;
 import com.xagentstudy.plan.LearningPlan;
 import com.xagentstudy.plan.LearningPlanRepository;
+import com.xagentstudy.resource.course.CourseResourceCandidate;
+import com.xagentstudy.resource.course.CourseResourceCandidateRepository;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -40,17 +42,20 @@ public class LearningResourceService {
     private final LearningResourceRepository resourceRepository;
     private final LearningPlanRepository planRepository;
     private final LearningDirectionRepository directionRepository;
+    private final CourseResourceCandidateRepository courseResourceCandidateRepository;
     private final Path uploadRoot;
 
     public LearningResourceService(
             LearningResourceRepository resourceRepository,
             LearningPlanRepository planRepository,
             LearningDirectionRepository directionRepository,
+            CourseResourceCandidateRepository courseResourceCandidateRepository,
             @Value("${app.storage.upload-root:uploads}") String uploadRoot
     ) {
         this.resourceRepository = resourceRepository;
         this.planRepository = planRepository;
         this.directionRepository = directionRepository;
+        this.courseResourceCandidateRepository = courseResourceCandidateRepository;
         this.uploadRoot = Path.of(uploadRoot);
     }
 
@@ -124,9 +129,47 @@ public class LearningResourceService {
     }
 
     @Transactional
+    public LearningResourceResponse createExternalCourse(
+            String title,
+            String description,
+            String courseUrl,
+            String sourceName,
+            String subjectName,
+            String subjectScope,
+            String tags
+    ) {
+        LearningResource saved = resourceRepository.save(new LearningResource(
+                AuthContext.currentUserId(),
+                title,
+                description,
+                "EXTERNAL_COURSE",
+                courseUrl,
+                "text/html",
+                courseUrl,
+                subjectName,
+                subjectScope,
+                tags,
+                0L
+        ));
+        return LearningResourceResponse.from(saved);
+    }
+
+    @Transactional
     public void delete(Long resourceId) {
         LearningResource resource = find(resourceId);
+        List<CourseResourceCandidate> publishedCandidates = courseResourceCandidateRepository.findAllByPublishedResourceId(resourceId);
+        publishedCandidates.forEach(CourseResourceCandidate::detachPublishedResource);
+        if (!publishedCandidates.isEmpty()) {
+            courseResourceCandidateRepository.saveAll(publishedCandidates);
+        }
         resourceRepository.delete(resource);
+        deleteLocalFileIfNeeded(resource);
+    }
+
+    private void deleteLocalFileIfNeeded(LearningResource resource) {
+        if ("EXTERNAL_COURSE".equals(resource.getResourceType())) {
+            return;
+        }
         try {
             Files.deleteIfExists(Path.of(resource.getStorageKey()));
         } catch (IOException ignored) {
@@ -137,6 +180,9 @@ public class LearningResourceService {
     @Transactional(readOnly = true)
     public LearningResourcePreviewResponse preview(Long resourceId) {
         LearningResource resource = find(resourceId);
+        if ("EXTERNAL_COURSE".equals(resource.getResourceType())) {
+            return new LearningResourcePreviewResponse(LearningResourceResponse.from(resource), "EXTERNAL_COURSE", resource.getStorageKey());
+        }
         if (!"DOCUMENT".equals(resource.getResourceType())) {
             return new LearningResourcePreviewResponse(LearningResourceResponse.from(resource), resource.getResourceType(), "");
         }

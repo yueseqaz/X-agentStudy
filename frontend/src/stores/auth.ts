@@ -6,7 +6,6 @@ export interface UserSession {
   nickname: string
   account: string
   role: string
-  resourceManager: boolean
   avatarUrl: string | null
   emailVerified: boolean
   disabled: boolean
@@ -55,7 +54,6 @@ export function readStoredUserSession(): UserSession | null {
       nickname: parsed.nickname,
       account: parsed.account,
       role: parsed.role,
-      resourceManager: Boolean(parsed.resourceManager),
       avatarUrl: parsed.avatarUrl || null,
       emailVerified: Boolean(parsed.emailVerified),
       disabled: Boolean(parsed.disabled),
@@ -75,10 +73,6 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
     isAdmin: (state) => state.user?.role === 'ADMIN',
-    isResourceManager: (state) => Boolean(state.user?.resourceManager),
-    canManageResources(): boolean {
-      return this.isAdmin || this.isResourceManager
-    },
   },
   actions: {
     setSession(payload: AuthPayload) {

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Aim, Check, Clock, RefreshRight } from '@element-plus/icons-vue'
 import { http, type ApiResponse } from '../api/http'
 
 interface PlanSummary {
@@ -17,6 +19,57 @@ interface DashboardSummary {
   documentCount: number
   questionCount: number
   pendingReviewCount: number
+}
+
+interface LearningCoach {
+  planId: number | null
+  planTitle: string | null
+  directionName: string | null
+  headline: string
+  reason: string
+  estimatedMinutes: number
+  primaryActionLabel: string
+  primaryActionPath: string
+  nextSteps: string[]
+  signals: string[]
+}
+
+interface CheckinStats {
+  qaCount: number
+  answeredQuestionCount: number
+  correctAnswerCount: number
+  completedTaskCount: number
+  uploadedDocumentCount: number
+  generatedDocumentCount: number
+  onlineMinutes: number
+  activeScore: number
+}
+
+interface CheckinDay {
+  date: string
+  checkedIn: boolean
+  summary: string
+  mood: string
+  studyMinutes: number
+  canCheckIn: boolean
+  stats: CheckinStats
+  updatedAt: string | null
+}
+
+interface DailyStudyActionItem {
+  title: string
+  detail: string
+  path: string
+  primary: boolean
+}
+
+interface DailyStudyWorkspace {
+  date: string
+  coach: LearningCoach
+  checkin: CheckinDay
+  actionItems: DailyStudyActionItem[]
+  totalEstimatedMinutes: number
+  completionText: string
 }
 
 interface Billing {
@@ -38,6 +91,10 @@ const router = useRouter()
 const loading = ref(false)
 const plans = ref<PlanSummary[]>([])
 const billing = ref<Billing | null>(null)
+const coach = ref<LearningCoach | null>(null)
+const workspace = ref<DailyStudyWorkspace | null>(null)
+const coachLoading = ref(false)
+const checkinSaving = ref(false)
 const summary = ref<DashboardSummary>({
   planCount: 0,
   documentCount: 0,
@@ -64,8 +121,59 @@ async function fetchPlans() {
     plans.value = plansResponse.data.data
     summary.value = summaryResponse.data.data
     billing.value = billingResponse.data.data
+    await refreshWorkspace()
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshCoach() {
+  await refreshWorkspace()
+}
+
+async function refreshWorkspace() {
+  coachLoading.value = true
+  try {
+    const response = await http.get<ApiResponse<DailyStudyWorkspace>>('/dashboard/workspace/today')
+    workspace.value = response.data.data
+    coach.value = response.data.data.coach
+  } catch {
+    workspace.value = null
+    coach.value = {
+      planId: null,
+      planTitle: null,
+      directionName: null,
+      headline: '先定一个清晰学习方向',
+      reason: '陪跑建议暂时不可用，先从创建学习方向开始也能继续使用。',
+      estimatedMinutes: 12,
+      primaryActionLabel: '创建学习方向',
+      primaryActionPath: '/directions',
+      nextSteps: ['创建一个具体学习方向', '完成画像问答', '生成第一份学习计划'],
+      signals: ['暂无可用建议'],
+    }
+  } finally {
+    coachLoading.value = false
+  }
+}
+
+async function completeTodayCheckin() {
+  if (!workspace.value || workspace.value.checkin.checkedIn) {
+    return
+  }
+  checkinSaving.value = true
+  try {
+    const summary = coach.value
+      ? `${coach.value.headline}：${coach.value.nextSteps.join('；')}`
+      : '完成今日学习。'
+    await http.post<ApiResponse<CheckinDay>>(`/checkins/${workspace.value.date}`, {
+      summary,
+      mood: '稳步推进',
+      studyMinutes: workspace.value.totalEstimatedMinutes,
+    })
+    ElMessage.success('今日打卡已完成')
+    await refreshWorkspace()
+  } finally {
+    checkinSaving.value = false
   }
 }
 
@@ -109,14 +217,77 @@ const steps = [
       <section class="surface panel-pad">
         <div class="section-head">
           <div>
-            <h2>今日学习控制台</h2>
-            <p>围绕完整 SaaS 版本组织：计划、资料、问答、测验、复习、报告和订阅额度。</p>
+            <h2>每日学习工作台</h2>
+            <p>把陪跑建议、今日行动和打卡状态放在同一个入口。</p>
+          </div>
+          <el-button :icon="RefreshRight" :loading="coachLoading" @click="refreshCoach">刷新建议</el-button>
+        </div>
+
+        <el-skeleton v-if="loading" :rows="5" animated />
+        <div v-else-if="coach" class="coach-card">
+          <div class="today-workbench">
+            <div class="coach-main">
+              <div>
+                <span class="coach-kicker">{{ coach.directionName || '今日起步' }}</span>
+                <h3>{{ coach.headline }}</h3>
+                <p>{{ coach.reason }}</p>
+              </div>
+              <div class="coach-time">
+                <el-icon><Clock /></el-icon>
+                <strong>{{ workspace?.totalEstimatedMinutes || coach.estimatedMinutes }}</strong>
+                <span>分钟</span>
+              </div>
+            </div>
+
+            <div class="today-checkin-card" :class="{ done: workspace?.checkin.checkedIn }">
+              <span>{{ workspace?.completionText || '今日还未打卡' }}</span>
+              <strong>{{ workspace?.checkin.studyMinutes || 0 }} 分钟</strong>
+              <small>活跃分 {{ workspace?.checkin.stats.activeScore || 0 }}</small>
+              <el-button
+                :icon="Check"
+                type="primary"
+                :loading="checkinSaving"
+                :disabled="workspace?.checkin.checkedIn"
+                @click="completeTodayCheckin"
+              >
+                {{ workspace?.checkin.checkedIn ? '已完成打卡' : '完成今日打卡' }}
+              </el-button>
+            </div>
+          </div>
+          <div class="coach-signals">
+            <el-tag v-for="signal in coach.signals" :key="signal">{{ signal }}</el-tag>
+          </div>
+          <div class="today-action-list">
+            <button
+              v-for="(item, index) in workspace?.actionItems || []"
+              :key="item.title"
+              type="button"
+              :class="{ primary: item.primary }"
+              @click="router.push(item.path)"
+            >
+              <span>{{ index + 1 }}</span>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.detail }}</small>
+            </button>
+          </div>
+          <div class="item-actions">
+            <el-button :icon="Aim" type="primary" @click="router.push(coach.primaryActionPath)">
+              {{ coach.primaryActionLabel }}
+            </el-button>
+          </div>
+        </div>
+      </section>
+
+      <section class="surface panel-pad">
+        <div class="section-head">
+          <div>
+            <h2>最近学习计划</h2>
+            <p>保留常用入口，方便直接进入计划、知识库或工作流。</p>
           </div>
           <el-tag type="success">已连接真实计划</el-tag>
         </div>
 
-        <el-skeleton v-if="loading" :rows="5" animated />
-        <el-empty v-else-if="latestPlans.length === 0" description="还没有学习计划，先创建方向并生成计划" />
+        <el-empty v-if="!loading && latestPlans.length === 0" description="还没有学习计划，先创建方向并生成计划" />
         <div v-else class="direction-list">
           <div v-for="plan in latestPlans" :key="plan.id" class="direction-item">
             <div>

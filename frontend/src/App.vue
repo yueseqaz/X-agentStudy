@@ -8,9 +8,10 @@ import {
   Collection,
   Files,
   Histogram,
-  Management,
   Reading,
   Setting,
+  Moon,
+  Sunny,
   Trophy,
   UserFilled,
 } from '@element-plus/icons-vue'
@@ -25,6 +26,8 @@ const route = useRoute()
 const auth = useAuthStore()
 const publicPage = computed(() => route.meta.public)
 const sidebarCollapsed = ref(localStorage.getItem('x-agent-study-sidebar-collapsed') === '1')
+const theme = ref(localStorage.getItem('x-agent-study-theme') || 'light')
+document.documentElement.dataset.theme = theme.value
 const canGoBack = computed(() => route.path !== '/')
 const routeGuide = computed(() => {
   const path = route.path
@@ -58,30 +61,14 @@ const routeGuide = computed(() => {
   }
   if (path === '/resources') {
     return guide('resources', '资源库使用引导', [
-      ['先看自己的入口', '普通用户会看到协作者申请入口，已获批账号会看到进入我的资源管理入口。'],
       ['用筛选快速定位', '可以按类型、学科名、学科范畴和标签筛选，也可以搜索标题和简介。'],
       ['理解推荐规则', '资源学科名匹配方向名称，学科范畴匹配技能分类，标签用于补充命中。'],
-    ])
-  }
-  if (path === '/resources/apply') {
-    return guide('resource-apply', '资源协作者申请引导', [
-      ['说明擅长方向', '申请理由写清楚你熟悉的主题、资料来源或整理经验，管理员更容易判断适配度。'],
-      ['关注审核状态', '提交后可以在同页看到待审核、已通过或已拒绝状态，以及审核说明。'],
-      ['通过后进入管理页', '审核通过后，侧边栏会出现“我的资源管理”独立入口。'],
-    ])
-  }
-  if (path === '/resource-management') {
-    return guide('resource-management', '我的资源管理引导', [
-      ['先看我的来源', '这里会汇总你名下的来源站点、白名单状态和最近任务情况。'],
-      ['再建采集任务', '录入链接后可以发起采集，再进入候选资源补充标题、标签和方向字段。'],
-      ['只管理自己的资源', '当前页面只展示你自己的任务与候选资源，不包含全站审核能力。'],
     ])
   }
   if (path === '/admin') {
     return guide('admin', '管理后台使用引导', [
       ['概览运营状态', '概览页查看用户、学习资产、题库、任务和额度情况。'],
       ['维护学习资源', '学习资源 Tab 用于上传视频、音频、图片和文档，并填写匹配标签。'],
-      ['处理资源协作', '资源协作 Tab 用于审核申请、审核候选资源和查看来源概览。'],
       ['处理平台配置', '模型网关、任务、额度、用户安全和审计日志都在这里维护。'],
     ])
   }
@@ -107,6 +94,10 @@ function toggleSidebar() {
   localStorage.setItem('x-agent-study-sidebar-collapsed', sidebarCollapsed.value ? '1' : '0')
 }
 
+function toggleTheme() {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+}
+
 function guide(key: string, title: string, items: [string, string][]) {
   return {
     key,
@@ -124,8 +115,14 @@ function goBack() {
 }
 
 onMounted(() => {
+  document.documentElement.dataset.theme = theme.value
   auth.fetchMe()
   cleanupElementPlusOverlays()
+})
+
+watch(theme, (value) => {
+  document.documentElement.dataset.theme = value
+  localStorage.setItem('x-agent-study-theme', value)
 })
 
 watch(
@@ -179,10 +176,6 @@ watch(
           <el-icon><Files /></el-icon>
           <span>资源库</span>
         </el-menu-item>
-        <el-menu-item v-if="auth.ready && auth.canManageResources" index="/resource-management">
-          <el-icon><Management /></el-icon>
-          <span>我的资源管理</span>
-        </el-menu-item>
         <el-menu-item v-if="auth.ready && auth.isAdmin" index="/admin">
           <el-icon><Setting /></el-icon>
           <span>管理后台</span>
@@ -202,16 +195,21 @@ watch(
             class="topbar-back"
             :icon="ArrowLeft"
             text
-            circle
             @click="goBack"
           />
-          <span class="eyebrow">完整 SaaS 开发版</span>
           <h1>多 Agent 协作技能学习平台</h1>
         </div>
         <div class="topbar-actions">
-          <el-tag v-if="auth.user" :type="auth.canManageResources ? 'warning' : 'success'">
-            {{ auth.user.nickname }} · {{ auth.isAdmin ? 'ADMIN' : auth.canManageResources ? '资源协作者' : auth.user.role }}
+          <el-tag v-if="auth.user" type="success">
+            {{ auth.user.nickname }} · {{ auth.isAdmin ? 'ADMIN' : auth.user.role }}
           </el-tag>
+          <el-button
+            class="theme-toggle"
+            :icon="theme === 'dark' ? Sunny : Moon"
+            circle
+            :title="theme === 'dark' ? '切换浅色' : '切换深色'"
+            @click="toggleTheme"
+          />
           <el-button :icon="Bell" circle />
           <el-button :icon="Reading" type="primary" @click="router.push('/directions')">创建学习方向</el-button>
           <el-button @click="router.push({ path: '/account', query: { tab: 'billing' } })">订阅</el-button>

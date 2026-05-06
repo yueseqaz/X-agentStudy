@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS course_resource_candidates (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(180) NOT NULL,
+    description TEXT NULL,
+    course_url VARCHAR(768) NOT NULL,
+    source_name VARCHAR(120) NOT NULL,
+    cover_url VARCHAR(768) NULL,
+    subject_name VARCHAR(120) NOT NULL,
+    subject_scope VARCHAR(160) NOT NULL,
+    tags VARCHAR(512) NOT NULL,
+    difficulty VARCHAR(80) NULL,
+    status VARCHAR(32) NOT NULL,
+    created_by BIGINT NOT NULL,
+    published_resource_id BIGINT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    INDEX idx_course_candidates_status_created (status, created_at),
+    INDEX idx_course_candidates_source (source_name),
+    CONSTRAINT fk_course_candidates_resource FOREIGN KEY (published_resource_id) REFERENCES learning_resources(id)
+);

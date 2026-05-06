@@ -390,7 +390,7 @@ public class QuizService {
             String reason = "来自题目 #" + question.getId() + " 的作答结果，来源：" + sourceLabelService.label(question.getSourceScope()) + "。";
             int currentPriority = priority;
             ReviewRecord record = reviewRecordRepository
-                    .findByPlanIdAndUserIdAndKnowledgePoint(planId, AuthContext.currentUserId(), safePoint)
+                    .findFirstByPlanIdAndUserIdAndKnowledgePointOrderByCompletedAscPriorityLevelDescRecommendedAtDesc(planId, AuthContext.currentUserId(), safePoint)
                     .orElseGet(() -> reviewRecordRepository.save(new ReviewRecord(
                             planId,
                             AuthContext.currentUserId(),

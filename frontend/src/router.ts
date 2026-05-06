@@ -8,8 +8,6 @@ import LoginView from './views/LoginView.vue'
 import OutcomesView from './views/OutcomesView.vue'
 import PlanView from './views/PlanView.vue'
 import ProfileView from './views/ProfileView.vue'
-import ResourceApplicationView from './views/ResourceApplicationView.vue'
-import ResourceContributorView from './views/ResourceContributorView.vue'
 import ResourceLibraryView from './views/ResourceLibraryView.vue'
 import { readStoredUserSession, writeStoredUserSession, type UserSession } from './stores/auth'
 import WorkflowView from './views/WorkflowView.vue'
@@ -24,8 +22,6 @@ export const router = createRouter({
     { path: '/calendar', component: CalendarView },
     { path: '/directions', component: DirectionsView },
     { path: '/resources', component: ResourceLibraryView },
-    { path: '/resources/apply', component: ResourceApplicationView },
-    { path: '/resource-management', component: ResourceContributorView, meta: { resourceManager: true } },
     { path: '/directions/:directionId/profile', component: ProfileView },
     { path: '/plans/:planId', component: PlanView },
     { path: '/plans/:planId/workflow', component: WorkflowView },
@@ -51,7 +47,7 @@ router.beforeEach(async (to) => {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
   let user = readStoredUserSession()
-  if (!user && (to.meta.admin || to.meta.resourceManager)) {
+  if (!user && to.meta.admin) {
     try {
       const response = await fetch('/api/v1/auth/me', {
         headers: {
@@ -69,9 +65,6 @@ router.beforeEach(async (to) => {
   }
   if (to.meta.admin && user?.role !== 'ADMIN') {
     return { path: '/' }
-  }
-  if (to.meta.resourceManager && !(user?.resourceManager || user?.role === 'ADMIN')) {
-    return { path: '/resources' }
   }
   return true
 })

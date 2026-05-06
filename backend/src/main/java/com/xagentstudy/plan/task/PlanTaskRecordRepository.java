@@ -17,6 +17,8 @@ public interface PlanTaskRecordRepository extends JpaRepository<PlanTaskRecord, 
 
     long countByUserIdAndCompletedTrueAndCompletedAtBetween(Long userId, OffsetDateTime start, OffsetDateTime end);
 
+    long countByPlanIdAndUserIdAndCompletedTrueAndCompletedAtBetween(Long planId, Long userId, OffsetDateTime start, OffsetDateTime end);
+
     List<PlanTaskRecord> findByUserIdAndPlanIdInOrderByPlanIdAscStageIndexAscTaskIndexAsc(Long userId, List<Long> planIds);
 
     void deleteByPlanIdAndUserId(Long planId, Long userId);

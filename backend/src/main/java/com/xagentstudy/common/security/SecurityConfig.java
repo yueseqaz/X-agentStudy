@@ -30,7 +30,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/refresh", "/api/v1/auth/password-reset/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/model-configs/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/resource-collaboration/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

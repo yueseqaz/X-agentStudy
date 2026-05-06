@@ -48,7 +48,7 @@ public class ReviewService {
                     safePoint = safePoint.substring(0, 120);
                 }
                 String finalSafePoint = safePoint;
-                reviewRecordRepository.findByPlanIdAndUserIdAndKnowledgePoint(planId, AuthContext.currentUserId(), finalSafePoint)
+                reviewRecordRepository.findFirstByPlanIdAndUserIdAndKnowledgePointOrderByCompletedAscPriorityLevelDescRecommendedAtDesc(planId, AuthContext.currentUserId(), finalSafePoint)
                         .orElseGet(() -> reviewRecordRepository.save(new ReviewRecord(
                                 planId,
                                 AuthContext.currentUserId(),
