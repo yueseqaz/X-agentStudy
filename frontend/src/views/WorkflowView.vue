@@ -123,6 +123,18 @@ interface WorkflowNode {
   icon: typeof Collection
 }
 
+interface AgentTaskRecord {
+  id: number
+  planId: number | null
+  taskType: string
+  status: string
+  inputPayload: string | null
+  outputPayload: string | null
+  errorMessage: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 interface AgentCard {
   id: string
   name: string
@@ -194,6 +206,7 @@ const profile = ref<Profile | null>(null)
 const recommendedResources = ref<LearningResource[]>([])
 const dynamicProfile = ref<DynamicProfile | null>(null)
 const resourceQuality = ref<ResourceQuality | null>(null)
+const agentTaskRecords = ref<AgentTaskRecord[]>([])
 
 const stages = computed<PlanStage[]>(() => {
   if (!plan.value?.stages) {
@@ -266,6 +279,52 @@ const cockpitSummary = computed(() => {
     return '已有待复习项，教练 Agent 建议先处理复习，再推进新内容。'
   }
   return '核心链路已打通，可以继续生成视频、实操案例和更高难度测验。'
+})
+const activeLearningTask = computed(() => tasks.value.find((task) => !task.completed) || tasks.value[0] || null)
+const learningTaskState = computed(() => {
+  if (!activeLearningTask.value) {
+    return {
+      label: '等待任务',
+      tone: 'info',
+      reason: '当前计划还没有可执行任务，适合先重新生成或调整学习计划。',
+      action: '完善计划',
+      path: plan.value ? `/plans/${plan.value.id}` : '/directions',
+    }
+  }
+  if (documents.value.length === 0) {
+    return {
+      label: '需补资料',
+      tone: 'warning',
+      reason: '任务已确定，但知识库还没有资料，问答和测验缺少依据。',
+      action: '补充资料',
+      path: `/plans/${planId.value}?tab=knowledge`,
+    }
+  }
+  if ((report.value?.questionCount ?? 0) === 0) {
+    return {
+      label: '待检测',
+      tone: 'warning',
+      reason: '资料已就绪，下一步应生成题目检查是否真正掌握。',
+      action: '生成测验',
+      path: `/plans/${planId.value}?tab=quiz`,
+    }
+  }
+  if ((reviewSummary.value?.pendingCount ?? 0) > 0) {
+    return {
+      label: '需复习',
+      tone: 'danger',
+      reason: '系统发现待复习内容，先处理薄弱点再继续新任务。',
+      action: '进入复习',
+      path: `/plans/${planId.value}?tab=review`,
+    }
+  }
+  return {
+    label: activeLearningTask.value.completed ? '已完成' : '进行中',
+    tone: activeLearningTask.value.completed ? 'success' : 'primary',
+    reason: activeLearningTask.value.completed ? '当前任务已完成，可以查看报告确认掌握情况。' : '当前资料和测验链路已具备，可以继续完成任务。',
+    action: activeLearningTask.value.completed ? '查看报告' : '继续学习',
+    path: `/plans/${planId.value}`,
+  }
 })
 const agentCards = computed<AgentCard[]>(() => {
   const profileScore = profile.value ? 100 : (plan.value?.profileId ? 70 : 0)
@@ -415,6 +474,7 @@ const agentCards = computed<AgentCard[]>(() => {
   })
   return agents
 })
+const visibleAgentTaskRecords = computed(() => agentTaskRecords.value.slice(0, 8))
 const workflowNodes = computed<WorkflowNode[]>(() => [
   {
     id: 'profile',
@@ -497,7 +557,7 @@ const workflowNodes = computed<WorkflowNode[]>(() => [
 async function fetchWorkflow() {
   loading.value = true
   try {
-    const [planResponse, tasksResponse, documentsResponse, reportResponse, reviewResponse, resourcesResponse, dynamicProfileResponse, resourceQualityResponse] = await Promise.all([
+    const [planResponse, tasksResponse, documentsResponse, reportResponse, reviewResponse, resourcesResponse, dynamicProfileResponse, resourceQualityResponse, agentTasksResponse] = await Promise.all([
       http.get<ApiResponse<Plan>>(`/plans/${planId.value}`),
       http.get<ApiResponse<PlanTask[]>>(`/plans/${planId.value}/tasks`),
       http.get<ApiResponse<KnowledgeDocument[]>>(`/plans/${planId.value}/documents`),
@@ -506,6 +566,7 @@ async function fetchWorkflow() {
       http.get<ApiResponse<LearningResource[]>>(`/plans/${planId.value}/resources/recommended`),
       http.get<ApiResponse<DynamicProfile>>(`/plans/${planId.value}/dynamic-profile`),
       http.get<ApiResponse<ResourceQuality>>(`/plans/${planId.value}/resource-quality`),
+      http.get<ApiResponse<AgentTaskRecord[]>>(`/tasks/plans/${planId.value}`),
     ])
     plan.value = planResponse.data.data
     tasks.value = tasksResponse.data.data
@@ -515,6 +576,7 @@ async function fetchWorkflow() {
     recommendedResources.value = resourcesResponse.data.data
     dynamicProfile.value = dynamicProfileResponse.data.data
     resourceQuality.value = resourceQualityResponse.data.data
+    agentTaskRecords.value = agentTasksResponse.data.data
     if (plan.value?.directionId) {
       try {
         const profileResponse = await http.get<ApiResponse<Profile>>(`/directions/${plan.value.directionId}/profile/latest`)
@@ -538,6 +600,56 @@ function stageTaskCount(stageIndex: number) {
 
 function completedStageTaskCount(stageIndex: number) {
   return tasks.value.filter((task) => task.stageIndex === stageIndex && task.completed).length
+}
+
+function agentTaskName(taskType: string) {
+  const names: Record<string, string> = {
+    PROFILE_AGENT: '画像 Agent',
+    PLAN_AGENT: '规划 Agent',
+    QA_AGENT: '答疑 Agent',
+    QUIZ_AGENT: '题库 Agent',
+    GRADER_AGENT: '批改 Agent',
+    DOCUMENT_AGENT: '文档 Agent',
+    SUMMARY_CARD_AGENT: '总结 Agent',
+    KNOWLEDGE_DOCUMENT_PARSE: '知识库 Agent',
+  }
+  return names[taskType] || taskType.replaceAll('_', ' ')
+}
+
+function agentTaskStatusType(status: string) {
+  if (status === 'SUCCESS') {
+    return 'success'
+  }
+  if (status === 'FAILED') {
+    return 'danger'
+  }
+  if (status === 'RUNNING') {
+    return 'warning'
+  }
+  return 'info'
+}
+
+function agentTaskSummary(record: AgentTaskRecord) {
+  const source = record.status === 'FAILED' ? record.errorMessage : record.outputPayload
+  if (!source) {
+    return record.status === 'RUNNING' ? '正在处理，等待结果写入。' : '任务已创建，等待执行结果。'
+  }
+  return source
+    .replace(/[{}\[\]"]/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 110)
+}
+
+function formatDateTime(value: string) {
+  if (!value) {
+    return ''
+  }
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 onMounted(fetchWorkflow)
@@ -578,6 +690,29 @@ onMounted(fetchWorkflow)
           <strong>{{ report?.questionCount ?? 0 }}</strong>
         </div>
       </div>
+
+      <section class="learning-task-center">
+        <div class="task-center-main">
+          <span>Today Learning Mission</span>
+          <h2>今日学习任务中心</h2>
+          <strong>{{ activeLearningTask?.taskText || '等待生成学习任务' }}</strong>
+          <p>{{ learningTaskState.reason }}</p>
+          <div>
+            <el-tag :type="learningTaskState.tone">{{ learningTaskState.label }}</el-tag>
+            <el-tag type="info">Stage {{ (activeLearningTask?.stageIndex ?? activeStageIndex) + 1 }}</el-tag>
+            <el-tag type="info">任务进度 {{ completedTaskCount }} / {{ tasks.length }}</el-tag>
+          </div>
+        </div>
+        <div class="task-center-action">
+          <small>下一步建议</small>
+          <strong>{{ learningTaskState.action }}</strong>
+          <el-progress :percentage="taskProgress" :stroke-width="8" />
+          <el-button type="primary" @click="router.push(learningTaskState.path)">
+            {{ learningTaskState.action }}
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+        </div>
+      </section>
 
       <section class="agent-cockpit">
         <div class="agent-cockpit-head">
@@ -624,6 +759,29 @@ onMounted(fetchWorkflow)
             </span>
           </button>
         </div>
+      </section>
+
+      <section class="agent-work-log">
+        <div class="section-head">
+          <div>
+            <h2>Agent 工作记录</h2>
+            <p>展示系统已经执行过的生成、解析、批改和总结任务。</p>
+          </div>
+          <el-tag>{{ agentTaskRecords.length }} 条记录</el-tag>
+        </div>
+        <div v-if="visibleAgentTaskRecords.length > 0" class="agent-log-list">
+          <article v-for="record in visibleAgentTaskRecords" :key="record.id" class="agent-log-item">
+            <div>
+              <span>{{ agentTaskName(record.taskType) }}</span>
+              <strong>{{ agentTaskSummary(record) }}</strong>
+            </div>
+            <div>
+              <el-tag :type="agentTaskStatusType(record.status)" size="small">{{ record.status }}</el-tag>
+              <small>{{ formatDateTime(record.updatedAt) }}</small>
+            </div>
+          </article>
+        </div>
+        <el-empty v-else description="暂无 Agent 工作记录。生成计划、资料、题目或批改后会自动出现。" />
       </section>
 
       <section v-if="dynamicProfile" class="dynamic-profile-center">
@@ -879,6 +1037,75 @@ onMounted(fetchWorkflow)
   font-size: 30px;
 }
 
+.learning-task-center {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 0.3fr);
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-solid) 96%, transparent), color-mix(in srgb, var(--surface-muted) 90%, transparent)),
+    repeating-linear-gradient(0deg, transparent 0 30px, color-mix(in srgb, var(--border) 34%, transparent) 30px 31px);
+  box-shadow: 0 20px 48px var(--shadow);
+}
+
+.task-center-main {
+  display: grid;
+  gap: 10px;
+}
+
+.task-center-main span,
+.task-center-action small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.task-center-main h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.task-center-main strong {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.task-center-main p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.65;
+}
+
+.task-center-main div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-center-action {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 90%, transparent);
+}
+
+.task-center-action strong {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
 .agent-cockpit {
   position: relative;
   display: grid;
@@ -979,6 +1206,62 @@ onMounted(fetchWorkflow)
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 12px;
+}
+
+.agent-work-log {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  box-shadow: 0 18px 42px var(--shadow);
+}
+
+.agent-log-list {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-log-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 66%, transparent);
+}
+
+.agent-log-item > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agent-log-item > div:last-child {
+  justify-items: end;
+}
+
+.agent-log-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.agent-log-item strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-log-item small {
+  color: var(--text-soft);
+  font-size: 12px;
 }
 
 .agent-card {
@@ -1577,6 +1860,7 @@ onMounted(fetchWorkflow)
 @media (max-width: 980px) {
   .workflow-hero,
   .workflow-metrics,
+  .learning-task-center,
   .agent-cockpit-head,
   .dynamic-profile-head,
   .profile-insight-grid,
@@ -1592,6 +1876,14 @@ onMounted(fetchWorkflow)
 
   .agent-readiness div {
     justify-content: flex-start;
+  }
+
+  .agent-log-item {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-log-item > div:last-child {
+    justify-items: start;
   }
 }
 </style>

@@ -11,5 +11,7 @@ public interface AgentTaskRepository extends JpaRepository<AgentTask, Long> {
 
     List<AgentTask> findTop8ByStatusOrderByUpdatedAtDesc(String status);
 
+    List<AgentTask> findTop20ByPlanIdOrderByUpdatedAtDesc(Long planId);
+
     void deleteByPlanId(Long planId);
 }

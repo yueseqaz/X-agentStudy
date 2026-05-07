@@ -4,6 +4,8 @@ import com.xagentstudy.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class AgentTaskService {
     private final AgentTaskRepository repository;
@@ -41,6 +43,13 @@ public class AgentTaskService {
     @Transactional(readOnly = true)
     public AgentTaskResponse get(Long taskId) {
         return AgentTaskResponse.from(getTask(taskId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AgentTaskResponse> listByPlan(Long planId) {
+        return repository.findTop20ByPlanIdOrderByUpdatedAtDesc(planId).stream()
+                .map(AgentTaskResponse::from)
+                .toList();
     }
 
     private AgentTask getTask(Long taskId) {
