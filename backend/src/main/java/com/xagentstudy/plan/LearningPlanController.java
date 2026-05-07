@@ -44,6 +44,21 @@ public class LearningPlanController {
         return ApiResponse.ok(service.get(planId));
     }
 
+    @PostMapping("/plans/{planId}/share")
+    public ApiResponse<PlanShareResponse> share(@PathVariable Long planId) {
+        return ApiResponse.ok(service.enableShare(planId));
+    }
+
+    @GetMapping("/public/plans/{shareCode}")
+    public ApiResponse<PublicPlanResponse> publicPlan(@PathVariable String shareCode) {
+        return ApiResponse.ok(service.getPublicPlan(shareCode));
+    }
+
+    @PostMapping("/public/plans/{shareCode}/apply")
+    public ApiResponse<PlanResponse> applyPublicPlan(@PathVariable String shareCode) {
+        return ApiResponse.ok(service.applySharedPlan(shareCode));
+    }
+
     @DeleteMapping("/plans/{planId}")
     public ApiResponse<Void> delete(@PathVariable Long planId) {
         service.delete(planId);

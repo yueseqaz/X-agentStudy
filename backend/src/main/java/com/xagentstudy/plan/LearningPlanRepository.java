@@ -8,6 +8,8 @@ import java.util.Optional;
 public interface LearningPlanRepository extends JpaRepository<LearningPlan, Long> {
     Optional<LearningPlan> findFirstByDirectionIdOrderByCreatedAtDesc(Long directionId);
 
+    Optional<LearningPlan> findByShareCode(String shareCode);
+
     List<LearningPlan> findByDirectionIdOrderByCreatedAtDesc(Long directionId);
 
     List<LearningPlan> findByDirectionIdInOrderByCreatedAtDesc(List<Long> directionIds);

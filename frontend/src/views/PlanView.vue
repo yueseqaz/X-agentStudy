@@ -59,6 +59,11 @@ interface Plan {
   createdAt: string
 }
 
+interface PlanShare {
+  planId: number
+  shareCode: string
+}
+
 interface PlanTask {
   id: number
   stageIndex: number
@@ -299,8 +304,11 @@ const route = useRoute()
 const router = useRouter()
 const planId = computed(() => Number(route.params.planId))
 const loading = ref(false)
+const shareLoading = ref(false)
+const shareDialogVisible = ref(false)
 const activeTab = ref(String(route.query.tab || 'details'))
 const plan = ref<Plan | null>(null)
+const share = ref<PlanShare | null>(null)
 const tasks = ref<PlanTask[]>([])
 const adjustment = ref<PlanAdjustment | null>(null)
 const documents = ref<KnowledgeDocument[]>([])
@@ -370,6 +378,12 @@ const stages = computed<PlanStage[]>(() => {
     return []
   }
 })
+const shareUrl = computed(() => share.value ? `${window.location.origin}/share/plans/${share.value.shareCode}` : '')
+const shareQrUrl = computed(() =>
+  shareUrl.value
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareUrl.value)}`
+    : '',
+)
 const planTabGuide = computed(() => {
   const tab = activeTab.value
   const map: Record<string, [string, [string, string][]]> = {
@@ -704,6 +718,31 @@ async function regenerateStructure() {
   } finally {
     regeneratingStructure.value = false
   }
+}
+
+async function openShareDialog() {
+  if (!plan.value) {
+    return
+  }
+  shareDialogVisible.value = true
+  if (share.value) {
+    return
+  }
+  shareLoading.value = true
+  try {
+    const response = await http.post<ApiResponse<PlanShare>>(`/plans/${plan.value.id}/share`, {})
+    share.value = response.data.data
+  } finally {
+    shareLoading.value = false
+  }
+}
+
+async function copyShareUrl() {
+  if (!shareUrl.value) {
+    return
+  }
+  await navigator.clipboard.writeText(shareUrl.value)
+  ElMessage.success('分享链接已复制')
 }
 
 async function deletePlan() {
@@ -1522,6 +1561,7 @@ watch(
         </div>
         <div class="topbar-actions">
           <el-tag type="success">{{ plan.status }}</el-tag>
+          <el-button :icon="Connection" plain @click="openShareDialog">分享</el-button>
           <el-button :icon="Connection" @click="router.push(`/plans/${plan.id}/workflow`)">工作流</el-button>
           <el-button :icon="Files" @click="activeTab = 'knowledge'">知识库</el-button>
           <el-button :icon="Refresh" :loading="regeneratingStructure" type="primary" @click="regenerateStructure">
@@ -2162,6 +2202,19 @@ watch(
           </section>
         </el-tab-pane>
       </el-tabs>
+
+      <el-dialog v-model="shareDialogVisible" title="分享学习计划" width="460px">
+        <el-skeleton v-if="shareLoading" :rows="5" animated />
+        <div v-else class="plan-share-box">
+          <img v-if="shareQrUrl" :src="shareQrUrl" alt="学习计划分享二维码" />
+          <el-input :model-value="shareUrl" readonly>
+            <template #append>
+              <el-button @click="copyShareUrl">复制</el-button>
+            </template>
+          </el-input>
+          <p>公开页只展示计划标题、目标、阶段和知识点，不展示账号、问答、错题或报告。</p>
+        </div>
+      </el-dialog>
     </template>
     <el-empty v-else description="计划不存在" />
 

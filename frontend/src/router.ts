@@ -3,11 +3,13 @@ import DashboardView from './views/DashboardView.vue'
 import AdminView from './views/AdminView.vue'
 import AccountView from './views/AccountView.vue'
 import CalendarView from './views/CalendarView.vue'
+import CommunityView from './views/CommunityView.vue'
 import DirectionsView from './views/DirectionsView.vue'
 import LoginView from './views/LoginView.vue'
 import OutcomesView from './views/OutcomesView.vue'
 import PlanView from './views/PlanView.vue'
 import ProfileView from './views/ProfileView.vue'
+import PublicPlanShareView from './views/PublicPlanShareView.vue'
 import ResourceLibraryView from './views/ResourceLibraryView.vue'
 import { readStoredUserSession, writeStoredUserSession, type UserSession } from './stores/auth'
 import WorkflowView from './views/WorkflowView.vue'
@@ -17,9 +19,11 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginView, meta: { public: true } },
+    { path: '/share/plans/:shareCode', component: PublicPlanShareView, meta: { public: true } },
     { path: '/', component: DashboardView },
     { path: '/outcomes', component: OutcomesView },
     { path: '/calendar', component: CalendarView },
+    { path: '/community', component: CommunityView },
     { path: '/directions', component: DirectionsView },
     { path: '/resources', component: ResourceLibraryView },
     { path: '/directions/:directionId/profile', component: ProfileView },

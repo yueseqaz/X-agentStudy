@@ -33,11 +33,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.security.SecureRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class LearningPlanService {
+    private static final SecureRandom SHARE_RANDOM = new SecureRandom();
+    private static final char[] SHARE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".toCharArray();
     private final LearningDirectionRepository directionRepository;
     private final LearningProfileRepository profileRepository;
     private final LearningPlanRepository planRepository;
@@ -115,6 +118,50 @@ public class LearningPlanService {
                 .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND", "Learning plan not found"));
         LearningDirection direction = ensureDirection(plan.getDirectionId());
         return PlanResponse.from(plan, direction);
+    }
+
+    @Transactional
+    public PlanShareResponse enableShare(Long planId) {
+        LearningPlan plan = ensurePlanEntity(planId);
+        if (plan.getShareCode() == null || plan.getShareCode().isBlank()) {
+            plan.enableShare(nextShareCode());
+        }
+        return PlanShareResponse.from(plan);
+    }
+
+    @Transactional(readOnly = true)
+    public PublicPlanResponse getPublicPlan(String shareCode) {
+        LearningPlan plan = planRepository.findByShareCode(shareCode)
+                .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND", "Shared learning plan not found"));
+        LearningDirection direction = directionRepository.findById(plan.getDirectionId())
+                .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND", "Learning direction not found"));
+        return PublicPlanResponse.from(plan, direction);
+    }
+
+    @Transactional
+    public PlanResponse applySharedPlan(String shareCode) {
+        LearningPlan sourcePlan = planRepository.findByShareCode(shareCode)
+                .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND", "Shared learning plan not found"));
+        LearningDirection sourceDirection = directionRepository.findById(sourcePlan.getDirectionId())
+                .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND", "Learning direction not found"));
+        billingService.ensurePlanSlotAvailable();
+        LearningDirection copiedDirection = directionRepository.save(new LearningDirection(
+                AuthContext.currentUserId(),
+                sourceDirection.getName(),
+                sourceDirection.getCategory(),
+                sourceDirection.getDescription()
+        ));
+        LearningPlan copiedPlan = planRepository.save(new LearningPlan(
+                copiedDirection.getId(),
+                null,
+                sourcePlan.getTitle(),
+                "ACTIVE",
+                sourcePlan.getGoal(),
+                sourcePlan.getStages()
+        ));
+        syncTaskRecords(copiedPlan);
+        refreshCurrentStage(copiedPlan);
+        return PlanResponse.from(copiedPlan, copiedDirection);
     }
 
     @Transactional(readOnly = true)
@@ -293,6 +340,24 @@ public class LearningPlanService {
                 .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND", "Learning plan not found"));
         ensureDirection(plan.getDirectionId());
         return plan;
+    }
+
+    private String nextShareCode() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            String code = randomShareCode();
+            if (planRepository.findByShareCode(code).isEmpty()) {
+                return code;
+            }
+        }
+        return java.util.UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String randomShareCode() {
+        StringBuilder builder = new StringBuilder(16);
+        for (int index = 0; index < 16; index++) {
+            builder.append(SHARE_ALPHABET[SHARE_RANDOM.nextInt(SHARE_ALPHABET.length)]);
+        }
+        return builder.toString();
     }
 
     private void syncTaskRecords(LearningPlan plan) {

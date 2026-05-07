@@ -5,6 +5,7 @@ import {
   Expand,
   Bell,
   Calendar,
+  ChatDotRound,
   Collection,
   Files,
   Histogram,
@@ -167,6 +168,10 @@ watch(
         <el-menu-item index="/calendar">
           <el-icon><Calendar /></el-icon>
           <span>每日打卡</span>
+        </el-menu-item>
+        <el-menu-item index="/community">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>问答社区</span>
         </el-menu-item>
         <el-menu-item index="/outcomes">
           <el-icon><Trophy /></el-icon>

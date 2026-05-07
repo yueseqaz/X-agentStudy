@@ -33,6 +33,9 @@ public class LearningPlan {
     @Column(columnDefinition = "json")
     private String stages;
 
+    @Column(length = 64)
+    private String shareCode;
+
     private Integer currentStageIndex;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
@@ -84,6 +87,10 @@ public class LearningPlan {
         return currentStageIndex;
     }
 
+    public String getShareCode() {
+        return shareCode;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -105,6 +112,11 @@ public class LearningPlan {
         this.stages = stages;
         this.status = "ACTIVE";
         this.currentStageIndex = 0;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void enableShare(String shareCode) {
+        this.shareCode = shareCode;
         this.updatedAt = OffsetDateTime.now();
     }
 }

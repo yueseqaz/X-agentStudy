@@ -34,8 +34,9 @@ const questions = [
   '你想学习这项技能主要是为了什么？',
   '你之前是否接触过，当前基础如何？',
   '你每周大概能投入多少学习时间？',
-  '你更偏好哪种学习方式？',
+  '你理解新知识时更偏好哪种方式？',
   '你现在最大的学习困难是什么？',
+  '你希望系统优先生成哪类学习资源？',
 ]
 
 const form = reactive({
@@ -171,6 +172,32 @@ async function waitForLatestPlan() {
   return null
 }
 
+const riskItems = computed(() => {
+  if (!profile.value?.risks) {
+    return []
+  }
+  try {
+    const parsed = JSON.parse(profile.value.risks)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []
+  } catch {
+    return [profile.value.risks]
+  }
+})
+
+const profileDimensions = computed(() => {
+  if (!profile.value) {
+    return []
+  }
+  return [
+    { label: '学习目标', value: profile.value.goal },
+    { label: '知识基础', value: profile.value.currentLevel },
+    { label: '学习节奏', value: profile.value.timeBudget },
+    { label: '认知风格', value: profile.value.preference },
+    { label: '易错点', value: riskItems.value.slice(0, 2).join('；') || '待通过测验发现' },
+    { label: '资源偏好', value: profile.value.preference },
+  ]
+})
+
 watch(directionId, fetchExistingState, { immediate: true })
 </script>
 
@@ -211,11 +238,18 @@ watch(directionId, fetchExistingState, { immediate: true })
           <h2>画像结果</h2>
           <p>确认画像后，规划 Agent 会生成阶段学习计划。</p>
         </div>
+        <el-tag v-if="profile" type="success">6 维画像</el-tag>
       </div>
 
       <el-skeleton v-if="initialLoading" :rows="6" animated />
       <el-empty v-else-if="!profile" description="回答问题后生成画像" />
       <div v-else class="profile-result">
+        <div class="profile-dimensions">
+          <article v-for="dimension in profileDimensions" :key="dimension.label">
+            <span>{{ dimension.label }}</span>
+            <strong>{{ dimension.value }}</strong>
+          </article>
+        </div>
         <div>
           <span>学习目标</span>
           <strong>{{ profile.goal }}</strong>
@@ -231,6 +265,10 @@ watch(directionId, fetchExistingState, { immediate: true })
         <div>
           <span>学习偏好</span>
           <strong>{{ profile.preference }}</strong>
+        </div>
+        <div>
+          <span>风险与薄弱点</span>
+          <p>{{ riskItems.join('；') || '暂无明显风险' }}</p>
         </div>
         <div>
           <span>推荐策略</span>

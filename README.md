@@ -106,5 +106,7 @@ npm run build
 - 数据库设计：`docs/backend/database-design.md`
 - API 设计：`docs/backend/api-design.md`
 - 系统架构：`docs/architecture/system-architecture.md`
+- A3 赛题查缺补漏：`docs/delivery/competition-gap-check.md`
+- AI Coding 工具说明：`docs/delivery/ai-coding-tools.md`
 
 迁移到其他电脑时，代码不包含数据库数据和上传文件。如需保留现有数据，需要额外导出 MySQL，并拷贝 `backend/uploads/`。
