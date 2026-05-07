@@ -104,16 +104,21 @@ public class AgentGenerationService {
     }
 
     public GeneratedAnswer generateAnswer(String question, String userLevel, String retrievedContext) {
+        return generateAnswer(question, userLevel, "", retrievedContext);
+    }
+
+    public GeneratedAnswer generateAnswer(String question, String userLevel, String planContext, String retrievedContext) {
         billingService.consumeAgentCall("QA_AGENT");
         String userPrompt = renderPrompt("prompts/tutor.md", mapOf(
                 "question", question,
                 "userLevel", nullToBlank(userLevel),
+                "planContext", nullToBlank(planContext),
                 "retrievedContext", nullToBlank(retrievedContext)
         ));
 
         return modelGateway.generateJson(tutorSystemPrompt(), userPrompt)
                 .flatMap(this::parseAnswer)
-                .orElseGet(() -> fallbackAnswer(question, retrievedContext));
+                .orElseGet(() -> fallbackAnswer(question, planContext.isBlank() ? retrievedContext : planContext));
     }
 
     public Optional<List<GeneratedQuizQuestion>> generateQuizQuestions(

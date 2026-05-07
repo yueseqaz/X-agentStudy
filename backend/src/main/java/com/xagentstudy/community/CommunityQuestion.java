@@ -19,6 +19,8 @@ public class CommunityQuestion {
     @Column(nullable = false)
     private Long userId;
 
+    private Long planId;
+
     @Column(nullable = false, length = 180)
     private String title;
 
@@ -34,8 +36,9 @@ public class CommunityQuestion {
     protected CommunityQuestion() {
     }
 
-    public CommunityQuestion(Long userId, String title, String content, String tags) {
+    public CommunityQuestion(Long userId, Long planId, String title, String content, String tags) {
         this.userId = userId;
+        this.planId = planId;
         this.title = title;
         this.content = content;
         this.tags = tags;
@@ -49,6 +52,10 @@ public class CommunityQuestion {
 
     public Long getUserId() {
         return userId;
+    }
+
+    public Long getPlanId() {
+        return planId;
     }
 
     public String getTitle() {

@@ -13,11 +13,12 @@ interface PlanSummary {
 
 const props = defineProps<{
   modelValue: number | null
+  allowEmpty?: boolean
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: number]
-  change: [value: number]
+  'update:modelValue': [value: number | null]
+  change: [value: number | null]
 }>()
 
 const loading = ref(false)
@@ -32,7 +33,7 @@ watch(
 )
 
 watch(selected, (value) => {
-  if (value) {
+  if (value || props.allowEmpty) {
     emit('update:modelValue', value)
     emit('change', value)
   }
@@ -43,7 +44,7 @@ async function fetchPlans() {
   try {
     const response = await http.get<ApiResponse<PlanSummary[]>>('/plans')
     plans.value = response.data.data
-    if (!selected.value && plans.value.length > 0) {
+    if (!props.allowEmpty && !selected.value && plans.value.length > 0) {
       selected.value = plans.value[0].id
     }
   } finally {
@@ -62,6 +63,7 @@ onMounted(fetchPlans)
     placeholder="选择学习计划"
     value-key="id"
   >
+    <el-option v-if="allowEmpty" label="不关联计划" :value="null" />
     <el-option
       v-for="plan in plans"
       :key="plan.id"

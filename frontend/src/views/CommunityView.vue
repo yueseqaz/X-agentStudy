@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, ChatDotRound, Connection, EditPen, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { http, type ApiResponse } from '../api/http'
+import MarkdownContent from '../components/MarkdownContent.vue'
+import PlanSelector from '../components/PlanSelector.vue'
+import { playTypewriter } from '../utils/typewriter'
 
 interface CommunityAnswer {
   id: number
@@ -17,6 +20,8 @@ interface CommunityAnswer {
 interface CommunityQuestion {
   id: number
   userId: number
+  planId: number | null
+  planTitle: string | null
   authorName: string
   title: string
   content: string
@@ -34,8 +39,11 @@ const submittingAnswer = ref(false)
 const invitingAi = ref(false)
 const questions = ref<CommunityQuestion[]>([])
 const selectedQuestion = ref<CommunityQuestion | null>(null)
+const displayAnswers = ref<Record<number, string>>({})
+const activeTypewriters = new Map<number, () => void>()
 
 const questionForm = reactive({
+  planId: null as number | null,
   title: '',
   content: '',
   tags: '',
@@ -49,13 +57,14 @@ const tagList = computed(() => splitTags(selectedQuestion.value?.tags || ''))
 const totalAnswers = computed(() => questions.value.reduce((sum, question) => sum + question.answerCount, 0))
 
 onMounted(fetchQuestions)
+onBeforeUnmount(stopTypewriters)
 
-async function fetchQuestions() {
+async function fetchQuestions(refreshDetail = true) {
   loading.value = true
   try {
     const response = await http.get<ApiResponse<CommunityQuestion[]>>('/community/questions')
     questions.value = response.data.data
-    if (selectedQuestion.value) {
+    if (refreshDetail && selectedQuestion.value) {
       const stillExists = questions.value.some((question) => question.id === selectedQuestion.value?.id)
       if (stillExists) {
         await openQuestion(selectedQuestion.value.id)
@@ -73,6 +82,7 @@ async function openQuestion(questionId: number) {
   try {
     const response = await http.get<ApiResponse<CommunityQuestion>>(`/community/questions/${questionId}`)
     selectedQuestion.value = response.data.data
+    displayAnswers.value = Object.fromEntries(selectedQuestion.value.answers.map((answer) => [answer.id, answer.content]))
   } finally {
     detailLoading.value = false
   }
@@ -86,15 +96,17 @@ async function createQuestion() {
   submittingQuestion.value = true
   try {
     const response = await http.post<ApiResponse<CommunityQuestion>>('/community/questions', {
+      planId: questionForm.planId,
       title: questionForm.title.trim(),
       content: questionForm.content.trim(),
       tags: questionForm.tags.trim(),
     })
+    questionForm.planId = null
     questionForm.title = ''
     questionForm.content = ''
     questionForm.tags = ''
     ElMessage.success('问题已发布')
-    await fetchQuestions()
+    await fetchQuestions(false)
     await openQuestion(response.data.data.id)
   } finally {
     submittingQuestion.value = false
@@ -108,11 +120,12 @@ async function submitAnswer() {
   }
   submittingAnswer.value = true
   try {
-    await http.post<ApiResponse<CommunityAnswer>>(`/community/questions/${selectedQuestion.value.id}/answers`, {
+    const response = await http.post<ApiResponse<CommunityAnswer>>(`/community/questions/${selectedQuestion.value.id}/answers`, {
       content: answerForm.content.trim(),
     })
     answerForm.content = ''
-    await refreshCurrentQuestion()
+    appendAnswer(response.data.data)
+    await fetchQuestions(false)
     ElMessage.success('回答已发布')
   } finally {
     submittingAnswer.value = false
@@ -125,24 +138,20 @@ async function inviteAi() {
   }
   invitingAi.value = true
   try {
-    await http.post<ApiResponse<CommunityAnswer>>(`/community/questions/${selectedQuestion.value.id}/ai-answer`, {})
-    await refreshCurrentQuestion()
+    const response = await http.post<ApiResponse<CommunityAnswer>>(`/community/questions/${selectedQuestion.value.id}/ai-answer`, {})
+    appendAnswer(response.data.data)
+    await fetchQuestions()
     ElMessage.success('AI 回答已生成')
   } finally {
     invitingAi.value = false
   }
 }
 
-async function refreshCurrentQuestion() {
-  if (selectedQuestion.value) {
-    await openQuestion(selectedQuestion.value.id)
-    await fetchQuestions()
-  }
-}
-
 function backToQuestions() {
+  stopTypewriters()
   selectedQuestion.value = null
   answerForm.content = ''
+  displayAnswers.value = {}
 }
 
 function splitTags(tags: string) {
@@ -151,6 +160,39 @@ function splitTags(tags: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString()
+}
+
+function appendAnswer(answer: CommunityAnswer) {
+  if (!selectedQuestion.value) {
+    return
+  }
+  selectedQuestion.value = {
+    ...selectedQuestion.value,
+    answers: [...selectedQuestion.value.answers, answer],
+    answerCount: selectedQuestion.value.answerCount + 1,
+  }
+  if (answer.source === 'AI') {
+    animateAnswer(answer)
+  } else {
+    displayAnswers.value = { ...displayAnswers.value, [answer.id]: answer.content }
+  }
+}
+
+function animateAnswer(answer: CommunityAnswer) {
+  activeTypewriters.get(answer.id)?.()
+  const stop = playTypewriter(answer.content, (value) => {
+    displayAnswers.value = { ...displayAnswers.value, [answer.id]: value }
+  })
+  activeTypewriters.set(answer.id, stop)
+}
+
+function answerText(answer: CommunityAnswer) {
+  return displayAnswers.value[answer.id] ?? answer.content
+}
+
+function stopTypewriters() {
+  activeTypewriters.forEach((stop) => stop())
+  activeTypewriters.clear()
 }
 </script>
 
@@ -172,6 +214,9 @@ function formatDate(value: string) {
             <p>描述清楚问题背景，其他用户和 AI 才能给出更准确的回答。</p>
           </div>
           <el-form class="community-compose" label-position="top">
+            <el-form-item label="关联学习计划">
+              <PlanSelector v-model="questionForm.planId" allow-empty />
+            </el-form-item>
             <el-form-item label="问题标题">
               <el-input v-model="questionForm.title" maxlength="180" show-word-limit placeholder="例如：Redis AOF 为什么会重写？" />
             </el-form-item>
@@ -222,6 +267,7 @@ function formatDate(value: string) {
                 <span>{{ question.authorName }}</span>
                 <span>{{ formatDate(question.updatedAt) }}</span>
               </div>
+              <el-tag v-if="question.planTitle" class="community-plan-tag" type="info" size="small">{{ question.planTitle }}</el-tag>
               <div>
                 <h3>{{ question.title }}</h3>
                 <p>{{ question.content }}</p>
@@ -247,6 +293,7 @@ function formatDate(value: string) {
           <div>
             <h2>{{ selectedQuestion.title }}</h2>
             <p>{{ selectedQuestion.content }}</p>
+            <el-tag v-if="selectedQuestion.planTitle" class="community-plan-tag" type="info">{{ selectedQuestion.planTitle }}</el-tag>
           </div>
           <el-button type="primary" plain :icon="Connection" :loading="invitingAi" @click="inviteAi">邀请 AI 回答</el-button>
         </div>
@@ -278,7 +325,7 @@ function formatDate(value: string) {
               <el-tag v-if="answer.source === 'AI'" type="success">AI</el-tag>
               <span>{{ formatDate(answer.createdAt) }}</span>
             </div>
-            <p>{{ answer.content }}</p>
+            <MarkdownContent :content="answerText(answer)" />
           </article>
         </div>
       </template>

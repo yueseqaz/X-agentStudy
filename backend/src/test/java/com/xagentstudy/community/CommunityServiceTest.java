@@ -1,6 +1,8 @@
 package com.xagentstudy.community;
 
 import com.xagentstudy.agent.model.ModelGateway;
+import com.xagentstudy.direction.LearningDirectionRepository;
+import com.xagentstudy.plan.LearningPlanRepository;
 import com.xagentstudy.user.AppUser;
 import com.xagentstudy.user.AppUserRepository;
 import org.junit.jupiter.api.Test;
@@ -22,7 +24,14 @@ class CommunityServiceTest {
         CommunityAnswerRepository answerRepository = mock(CommunityAnswerRepository.class);
         AppUserRepository userRepository = mock(AppUserRepository.class);
         ModelGateway modelGateway = mock(ModelGateway.class);
-        CommunityService service = new CommunityService(questionRepository, answerRepository, userRepository, modelGateway);
+        CommunityService service = new CommunityService(
+                questionRepository,
+                answerRepository,
+                userRepository,
+                modelGateway,
+                mock(LearningPlanRepository.class),
+                mock(LearningDirectionRepository.class)
+        );
 
         AppUser user = user(9L, "小林");
         when(userRepository.findById(9L)).thenReturn(Optional.of(user));
@@ -39,6 +48,7 @@ class CommunityServiceTest {
         });
 
         CommunityQuestionResponse created = service.createQuestion(9L, new CreateCommunityQuestionRequest(
+                null,
                 "Redis AOF 为什么会重写？",
                 "学习持久化时不太理解 AOF 重写触发条件。",
                 "Redis,持久化"
@@ -60,7 +70,14 @@ class CommunityServiceTest {
         CommunityAnswerRepository answerRepository = mock(CommunityAnswerRepository.class);
         AppUserRepository userRepository = mock(AppUserRepository.class);
         ModelGateway modelGateway = mock(ModelGateway.class);
-        CommunityService service = new CommunityService(questionRepository, answerRepository, userRepository, modelGateway);
+        CommunityService service = new CommunityService(
+                questionRepository,
+                answerRepository,
+                userRepository,
+                modelGateway,
+                mock(LearningPlanRepository.class),
+                mock(LearningDirectionRepository.class)
+        );
 
         when(questionRepository.findById(21L)).thenReturn(Optional.of(question(21L, 9L)));
         when(answerRepository.save(any(CommunityAnswer.class))).thenAnswer(invocation -> {
@@ -83,7 +100,14 @@ class CommunityServiceTest {
         CommunityAnswerRepository answerRepository = mock(CommunityAnswerRepository.class);
         AppUserRepository userRepository = mock(AppUserRepository.class);
         ModelGateway modelGateway = mock(ModelGateway.class);
-        CommunityService service = new CommunityService(questionRepository, answerRepository, userRepository, modelGateway);
+        CommunityService service = new CommunityService(
+                questionRepository,
+                answerRepository,
+                userRepository,
+                modelGateway,
+                mock(LearningPlanRepository.class),
+                mock(LearningDirectionRepository.class)
+        );
 
         when(questionRepository.findAllByOrderByUpdatedAtDesc()).thenReturn(List.of(question(21L, 9L)));
         when(answerRepository.countByQuestionId(21L)).thenReturn(2L);
@@ -105,6 +129,7 @@ class CommunityServiceTest {
     private CommunityQuestion question(Long id, Long userId) {
         CommunityQuestion question = new CommunityQuestion(
                 userId,
+                null,
                 "Redis AOF 为什么会重写？",
                 "学习持久化时不太理解 AOF 重写触发条件。",
                 "Redis,持久化"

@@ -1995,6 +1995,10 @@ h1 {
   -webkit-box-orient: vertical;
 }
 
+.community-plan-tag {
+  width: fit-content;
+}
+
 .community-tags.compact {
   min-height: 24px;
   margin: 0;
@@ -2080,11 +2084,8 @@ h1 {
   background: linear-gradient(180deg, rgba(237, 250, 243, 0.86), var(--surface-solid));
 }
 
-.community-answer p {
+.community-answer .markdown-content {
   margin: 0;
-  color: var(--text);
-  line-height: 1.75;
-  white-space: pre-wrap;
 }
 
 .plan-share-box {
@@ -3323,11 +3324,84 @@ h1 {
 }
 
 .answer-text {
-  white-space: pre-wrap;
   color: #3c3831;
   font-size: 14px;
   line-height: 1.7;
   margin-top: 12px;
+}
+
+.markdown-content {
+  color: var(--text);
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  margin: 14px 0 8px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.markdown-content h1 {
+  font-size: 22px;
+}
+
+.markdown-content h2 {
+  font-size: 19px;
+}
+
+.markdown-content h3,
+.markdown-content h4 {
+  font-size: 16px;
+}
+
+.markdown-content p {
+  margin: 0 0 10px;
+  color: inherit;
+  line-height: 1.75;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 8px 0 10px;
+  padding-left: 20px;
+}
+
+.markdown-content li {
+  margin: 4px 0;
+}
+
+.markdown-content code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.markdown-content pre {
+  overflow: auto;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #202124;
+  color: #f9f6ef;
+}
+
+.markdown-content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  white-space: pre;
 }
 
 .citation-list {

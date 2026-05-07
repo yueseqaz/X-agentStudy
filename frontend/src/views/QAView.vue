@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ChatLineRound, Connection } from '@element-plus/icons-vue'
 import { http, type ApiResponse } from '../api/http'
+import MarkdownContent from '../components/MarkdownContent.vue'
 import PlanSelector from '../components/PlanSelector.vue'
 import { formatDateTime } from '../utils/format'
+import { playTypewriter } from '../utils/typewriter'
 
 interface QARecord {
   id: number
@@ -32,6 +34,8 @@ const planId = computed(() => props.embeddedPlanId ?? selectedPlanId.value)
 const question = ref('')
 const loading = ref(false)
 const history = ref<QARecord[]>([])
+const displayAnswers = ref<Record<number, string>>({})
+const activeTypewriters = new Map<number, () => void>()
 
 const latest = computed(() => history.value[0])
 
@@ -41,6 +45,7 @@ async function fetchHistory() {
   }
   const response = await http.get<ApiResponse<QARecord[]>>(`/plans/${planId.value}/qa`)
   history.value = response.data.data
+  displayAnswers.value = Object.fromEntries(history.value.map((record) => [record.id, record.answer]))
 }
 
 async function ask() {
@@ -53,6 +58,7 @@ async function ask() {
       question: question.value,
     })
     history.value.unshift(response.data.data)
+    animateAnswer(response.data.data)
     question.value = ''
   } finally {
     loading.value = false
@@ -76,13 +82,33 @@ function parseList(value: string): string[] {
 }
 
 function handlePlanChange() {
+  stopTypewriters()
   history.value = []
+  displayAnswers.value = {}
   fetchHistory()
 }
 
 watch(() => props.embeddedPlanId, () => handlePlanChange())
 
 onMounted(fetchHistory)
+onBeforeUnmount(stopTypewriters)
+
+function animateAnswer(record: QARecord) {
+  activeTypewriters.get(record.id)?.()
+  const stop = playTypewriter(record.answer, (value) => {
+    displayAnswers.value = { ...displayAnswers.value, [record.id]: value }
+  })
+  activeTypewriters.set(record.id, stop)
+}
+
+function answerText(record: QARecord) {
+  return displayAnswers.value[record.id] ?? record.answer
+}
+
+function stopTypewriters() {
+  activeTypewriters.forEach((stop) => stop())
+  activeTypewriters.clear()
+}
 </script>
 
 <template>
@@ -91,7 +117,7 @@ onMounted(fetchHistory)
       <div class="section-head">
         <div>
           <h2>计划内 AI 问答</h2>
-          <p>无资料时使用通用讲解；上传资料后自动升级为知识库增强回答。</p>
+          <p>无上传资料时也会结合当前计划；上传资料后自动升级为知识库增强回答。</p>
         </div>
         <PlanSelector v-if="!embeddedPlanId" v-model="selectedPlanId" @change="handlePlanChange" />
         <el-tag v-else type="info">Plan #{{ embeddedPlanId }}</el-tag>
@@ -103,7 +129,7 @@ onMounted(fetchHistory)
           v-model="question"
           type="textarea"
           :rows="5"
-          placeholder="例如：Controller、Service、Repository 应该怎么分工？"
+          placeholder="例如：这个知识点在当前计划里应该怎么理解？"
           @keydown.meta.enter="ask"
           @keydown.ctrl.enter="ask"
         />
@@ -121,7 +147,7 @@ onMounted(fetchHistory)
             <strong>{{ record.question }}</strong>
           </div>
           <small>{{ formatDateTime(record.createdAt) }}</small>
-          <p class="answer-text">{{ record.answer }}</p>
+          <MarkdownContent class="answer-text" :content="answerText(record)" />
           <div class="tag-row" v-if="parseList(record.relatedPoints).length">
             <el-tag v-for="point in parseList(record.relatedPoints)" :key="point">{{ point }}</el-tag>
           </div>
@@ -152,7 +178,7 @@ onMounted(fetchHistory)
         <div class="section-head">
           <div>
             <h2>推荐追问</h2>
-            <p>可先冷启动提问，资料上传后再追问细节。</p>
+            <p>冷启动问题也会结合当前学习计划。</p>
           </div>
         </div>
         <div class="roadmap">
