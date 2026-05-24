@@ -1,44 +1,39 @@
 package com.xagentstudy.modelconfig;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xagentstudy.agent.model.SpringAiModelGateway;
 import com.xagentstudy.auth.AuthContext;
-import com.xagentstudy.agent.model.DeepSeekProperties;
 import com.xagentstudy.common.exception.BusinessException;
 import com.xagentstudy.common.security.SecretCipherService;
 import com.xagentstudy.user.AppUser;
 import com.xagentstudy.user.AppUserRepository;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class ModelConfigService {
     private final ModelConfigRepository repository;
     private final SecretCipherService cipherService;
     private final AppUserRepository userRepository;
-    private final DeepSeekProperties properties;
-    private final ObjectMapper objectMapper;
+    private final SpringAiModelGateway.ChatModelFactory chatModelFactory;
 
     public ModelConfigService(
             ModelConfigRepository repository,
             SecretCipherService cipherService,
             AppUserRepository userRepository,
-            DeepSeekProperties properties,
-            ObjectMapper objectMapper
+            SpringAiModelGateway.ChatModelFactory chatModelFactory
     ) {
         this.repository = repository;
         this.cipherService = cipherService;
         this.userRepository = userRepository;
-        this.properties = properties;
-        this.objectMapper = objectMapper;
+        this.chatModelFactory = chatModelFactory;
     }
 
     @Transactional(readOnly = true)
@@ -109,34 +104,24 @@ public class ModelConfigService {
     }
 
     private void validateModelConfig(SaveModelConfigRequest request, String apiKeyValue) {
-        String baseUrl = blankToDefault(request.baseUrl(), properties.baseUrl()).replaceAll("/+$", "");
-        String modelName = blankToDefault(request.modelName(), properties.model());
+        String baseUrl = requiredValue(request.baseUrl(), "Base URL is required").replaceAll("/+$", "");
+        String modelName = requiredValue(request.modelName(), "Model name is required");
         String apiKey = apiKeyValue.trim();
         try {
-            Map<String, Object> body = Map.of(
-                    "model", modelName,
-                    "temperature", 0,
-                    "max_tokens", 32,
-                    "messages", List.of(
-                            Map.of("role", "system", "content", "You are a model connectivity checker."),
-                            Map.of("role", "user", "content", "Reply with OK.")
-                    )
-            );
-            HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(baseUrl + "/chat/completions"))
-                    .timeout(Duration.ofSeconds(20))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+            OpenAiChatOptions options = OpenAiChatOptions.builder()
+                    .model(modelName)
+                    .temperature(0.0)
+                    .maxTokens(32)
                     .build();
-            HttpResponse<String> response = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(8))
-                    .build()
-                    .send(httpRequest, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new BusinessException("MODEL_CONFIG_INVALID", "模型连通性验证失败，请检查 Base URL、模型名称或 API Key");
-            }
-            JsonNode content = objectMapper.readTree(response.body()).path("choices").path(0).path("message").path("content");
-            if (content.isMissingNode() || content.asText().isBlank()) {
+            ChatModel chatModel = chatModelFactory.create(baseUrl, apiKey, options);
+            ChatResponse response = chatModel.call(new Prompt(List.of(
+                    new SystemMessage("You are a model connectivity checker."),
+                    new UserMessage("Reply with OK.")
+            )));
+            String content = response == null || response.getResult() == null || response.getResult().getOutput() == null
+                    ? ""
+                    : response.getResult().getOutput().getContent();
+            if (content == null || content.isBlank()) {
                 throw new BusinessException("MODEL_CONFIG_INVALID", "模型已响应但未返回有效内容");
             }
         } catch (BusinessException ex) {
@@ -146,8 +131,11 @@ public class ModelConfigService {
         }
     }
 
-    private String blankToDefault(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value.trim();
+    private String requiredValue(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException("VALIDATION_ERROR", message);
+        }
+        return value.trim();
     }
 
     private void ensureAdmin() {
