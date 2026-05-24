@@ -40,7 +40,7 @@ app:
   storage:
     upload-root: ${UPLOAD_ROOT:uploads}
   ai:
-    deepseek:
+    openai-compatible:
       api-key: ${DEEPSEEK_API_KEY:}
       base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
       model: ${DEEPSEEK_MODEL:deepseek-chat}
