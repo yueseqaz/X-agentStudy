@@ -43,6 +43,7 @@ X-AgentStudy 是一个面向技能学习的多 Agent 协作平台。项目围绕
 - MySQL
 - Redis
 - Flyway
+- Spring AI
 - Maven
 
 前端：
@@ -57,7 +58,8 @@ X-AgentStudy 是一个面向技能学习的多 Agent 协作平台。项目围绕
 
 AI 能力：
 
-- DeepSeek / OpenAI 兼容模型网关
+- Spring AI 模型调用网关
+- 支持 DeepSeek 等 OpenAI-compatible 模型
 - 多 Agent 任务编排
 - 画像生成、计划生成、文档生成、问答、题库、批改、总结图生成
 - 知识库召回增强
@@ -102,15 +104,21 @@ CREATE DATABASE IF NOT EXISTS x_agent_study CHARACTER SET utf8mb4 COLLATE utf8mb
 export DB_USERNAME=root
 export DB_PASSWORD=your_password
 export DEEPSEEK_API_KEY=your_api_key
+export DEEPSEEK_BASE_URL=https://api.deepseek.com
+export DEEPSEEK_MODEL=deepseek-chat
 ```
 
-也可以登录管理员账号后，在「管理后台 → 模型网关」配置模型。
+后端通过 Spring AI 调用 OpenAI-compatible 模型。默认示例使用 DeepSeek，也可以登录管理员账号后，在「管理后台 → 模型网关」配置其他兼容模型。
 
 ### 3. 启动后端
 
 ```bash
 cd backend
-DB_PASSWORD='your_password' DEEPSEEK_API_KEY='your_api_key' mvn spring-boot:run
+DB_PASSWORD='your_password' \
+DEEPSEEK_API_KEY='your_api_key' \
+DEEPSEEK_BASE_URL='https://api.deepseek.com' \
+DEEPSEEK_MODEL='deepseek-chat' \
+mvn spring-boot:run
 ```
 
 后端健康检查：
